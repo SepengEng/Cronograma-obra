@@ -5,51 +5,39 @@ import { useRouter } from "next/navigation";
 
 type Role = "admin" | "obra";
 type Session = { role: Role; secret: string };
+type Visit = { id: string; date: string; visitor: string; type: string; notes: string | null };
 
-type Visit = {
-  id: string;
-  date: string;
-  visitor: string;
-  type: string;
-  notes: string | null;
-};
+const MONTHS = ["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
+const DAYS = ["Dom","Seg","Ter","Qua","Qui","Sex","Sáb"];
 
-function formatDate(dateStr: string) {
-  return new Date(dateStr).toLocaleDateString("pt-BR", {
-    weekday: "long", day: "2-digit", month: "long", year: "numeric",
-  });
+function toDateKey(d: Date) {
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
 }
-
-function formatTime(dateStr: string) {
-  return new Date(dateStr).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
-}
-
 function toLocalInput(dateStr: string) {
   const d = new Date(dateStr);
-  const p = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
+  const p = (n: number) => String(n).padStart(2,"0");
+  return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
 }
-
-function groupByDate(visits: Visit[]) {
-  const g: Record<string, Visit[]> = {};
-  for (const v of visits) {
-    const k = new Date(v.date).toISOString().split("T")[0];
-    if (!g[k]) g[k] = [];
-    g[k].push(v);
-  }
-  return g;
+function formatTime(dateStr: string) {
+  return new Date(dateStr).toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"});
+}
+function formatFullDate(dateKey: string) {
+  const [y,m,d] = dateKey.split("-").map(Number);
+  return new Date(y,m-1,d).toLocaleDateString("pt-BR",{weekday:"long",day:"2-digit",month:"long"});
 }
 
 export default function CronogramaPage() {
   const router = useRouter();
-  const [session, setSession] = useState<Session | null>(null);
+  const [session, setSession] = useState<Session|null>(null);
   const [visits, setVisits] = useState<Visit[]>([]);
   const [loading, setLoading] = useState(true);
+  const [month, setMonth] = useState(() => { const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), 1); });
+  const [selected, setSelected] = useState<string|null>(() => toDateKey(new Date()));
   const [showForm, setShowForm] = useState(false);
-  const [editing, setEditing] = useState<Visit | null>(null);
+  const [editing, setEditing] = useState<Visit|null>(null);
   const [saving, setSaving] = useState(false);
-  const [deleteId, setDeleteId] = useState<string | null>(null);
-  const [form, setForm] = useState({ date: "", visitor: "", type: "visita", notes: "" });
+  const [deleteId, setDeleteId] = useState<string|null>(null);
+  const [form, setForm] = useState({ date:"", visitor:"", type:"visita", notes:"" });
 
   useEffect(() => {
     const raw = localStorage.getItem("session");
@@ -57,20 +45,41 @@ export default function CronogramaPage() {
     const s: Session = JSON.parse(raw);
     setSession(s);
     fetch("/api/visits")
-      .then((r) => r.json())
-      .then((data) => setVisits(Array.isArray(data) ? data : []))
+      .then(r => r.json())
+      .then(data => setVisits(Array.isArray(data) ? data : []))
       .catch(() => {})
       .finally(() => setLoading(false));
   }, [router]);
 
-  function logout() {
-    localStorage.removeItem("session");
-    router.replace("/");
+  // Group visits by date key
+  const byDate: Record<string, Visit[]> = {};
+  for (const v of visits) {
+    const k = toDateKey(new Date(v.date));
+    if (!byDate[k]) byDate[k] = [];
+    byDate[k].push(v);
   }
 
-  function openNew() {
+  // Build calendar grid
+  const firstDay = new Date(month.getFullYear(), month.getMonth(), 1).getDay();
+  const daysInMonth = new Date(month.getFullYear(), month.getMonth()+1, 0).getDate();
+  const todayKey = toDateKey(new Date());
+  const cells: (number|null)[] = [...Array(firstDay).fill(null), ...Array.from({length:daysInMonth},(_,i)=>i+1)];
+  while (cells.length % 7 !== 0) cells.push(null);
+
+  const selectedVisits = selected ? (byDate[selected] || []) : [];
+
+  function prevMonth() { setMonth(m => new Date(m.getFullYear(), m.getMonth()-1, 1)); }
+  function nextMonth() { setMonth(m => new Date(m.getFullYear(), m.getMonth()+1, 1)); }
+
+  function selectDay(day: number) {
+    const key = `${month.getFullYear()}-${String(month.getMonth()+1).padStart(2,"0")}-${String(day).padStart(2,"0")}`;
+    setSelected(key);
+  }
+
+  function openNew(dateKey?: string) {
     setEditing(null);
-    setForm({ date: "", visitor: "", type: "visita", notes: "" });
+    const base = dateKey ? dateKey : (selected || toDateKey(new Date()));
+    setForm({ date: base + "T09:00", visitor:"", type:"visita", notes:"" });
     setShowForm(true);
   }
 
@@ -84,32 +93,19 @@ export default function CronogramaPage() {
     e.preventDefault();
     if (!session) return;
     setSaving(true);
-    const body = {
-      date: new Date(form.date).toISOString(),
-      visitor: form.visitor,
-      type: form.type,
-      notes: form.notes || null,
-    };
+    const body = { date: new Date(form.date).toISOString(), visitor: form.visitor, type: form.type, notes: form.notes || null };
     if (editing) {
       const r = await fetch(`/api/visits/${editing.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json", "x-admin-secret": session.secret },
+        method:"PATCH", headers:{"Content-Type":"application/json","x-admin-secret":session.secret},
         body: JSON.stringify(body),
       });
-      if (r.ok) {
-        const updated = await r.json();
-        setVisits((prev) => prev.map((v) => v.id === updated.id ? updated : v).sort((a, b) => +new Date(a.date) - +new Date(b.date)));
-      }
+      if (r.ok) { const u = await r.json(); setVisits(p => p.map(v => v.id===u.id ? u : v)); }
     } else {
       const r = await fetch("/api/visits", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "x-admin-secret": session.secret },
+        method:"POST", headers:{"Content-Type":"application/json","x-admin-secret":session.secret},
         body: JSON.stringify(body),
       });
-      if (r.ok) {
-        const created = await r.json();
-        setVisits((prev) => [...prev, created].sort((a, b) => +new Date(a.date) - +new Date(b.date)));
-      }
+      if (r.ok) { const c = await r.json(); setVisits(p => [...p,c]); }
     }
     setSaving(false);
     setShowForm(false);
@@ -117,143 +113,175 @@ export default function CronogramaPage() {
 
   async function handleDelete(id: string) {
     if (!session) return;
-    await fetch(`/api/visits/${id}`, { method: "DELETE", headers: { "x-admin-secret": session.secret } });
-    setVisits((prev) => prev.filter((v) => v.id !== id));
+    await fetch(`/api/visits/${id}`, { method:"DELETE", headers:{"x-admin-secret":session.secret} });
+    setVisits(p => p.filter(v => v.id !== id));
     setDeleteId(null);
   }
 
   const isAdmin = session?.role === "admin";
-  const now = new Date();
-  const upcoming = visits.filter((v) => new Date(v.date) >= new Date(now.toDateString()));
-  const past = visits.filter((v) => new Date(v.date) < new Date(now.toDateString()));
-  const groups = groupByDate(upcoming);
-  const sortedDates = Object.keys(groups).sort();
 
   return (
-    <div className="min-h-screen bg-gray-950 text-white">
+    <div className="min-h-screen bg-gray-950 text-white flex flex-col">
       {/* Header */}
-      <header className="bg-gray-900 border-b border-gray-800 px-6 py-4 sticky top-0 z-10">
-        <div className="max-w-2xl mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 bg-orange-500 rounded-lg flex items-center justify-center text-lg">🏗️</div>
-            <div>
-              <h1 className="text-base font-bold text-white">Cronograma de Obra</h1>
-              <p className="text-xs text-gray-400">
-                {isAdmin ? "Modo admin — escritório" : "Modo visualização — obra"}
-              </p>
-            </div>
+      <header className="bg-gray-900 border-b border-gray-800 px-4 py-3 flex items-center justify-between">
+        <div className="flex items-center gap-2.5">
+          <div className="w-8 h-8 bg-orange-500 rounded-lg flex items-center justify-center text-base">🏗️</div>
+          <div>
+            <p className="text-sm font-bold text-white leading-tight">Cronograma de Obra</p>
+            <p className="text-xs text-gray-500 leading-tight">{isAdmin ? "Escritório" : "Equipe da obra"}</p>
           </div>
-          <div className="flex items-center gap-2">
-            {isAdmin && (
-              <button
-                onClick={openNew}
-                className="flex items-center gap-1.5 bg-orange-500 hover:bg-orange-600 text-white text-sm font-semibold px-3 py-1.5 rounded-lg transition-colors"
-              >
-                <span className="text-base leading-none">+</span> Nova
-              </button>
-            )}
-            <button
-              onClick={logout}
-              className="text-xs text-gray-500 hover:text-gray-300 transition-colors px-2 py-1.5"
-            >
-              Sair
+        </div>
+        <div className="flex items-center gap-2">
+          {isAdmin && (
+            <button onClick={() => openNew()}
+              className="flex items-center gap-1 bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold px-3 py-1.5 rounded-lg transition-colors">
+              + Agendar
             </button>
-          </div>
+          )}
+          <button onClick={() => { localStorage.removeItem("session"); router.replace("/"); }}
+            className="text-xs text-gray-500 hover:text-gray-300 px-2 py-1.5 transition-colors">
+            Sair
+          </button>
         </div>
       </header>
 
-      {/* Content */}
-      <main className="max-w-2xl mx-auto px-4 py-8">
-        {loading ? (
-          <div className="flex items-center justify-center py-24 text-gray-500">
-            <span className="animate-spin mr-2">⏳</span> Carregando...
+      <div className="flex-1 max-w-lg mx-auto w-full px-4 py-4 flex flex-col gap-4">
+
+        {/* Calendar */}
+        <div className="bg-gray-900 rounded-2xl border border-gray-800 overflow-hidden">
+          {/* Month nav */}
+          <div className="flex items-center justify-between px-5 py-4">
+            <button onClick={prevMonth} className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-800 transition-colors text-gray-400 hover:text-white">‹</button>
+            <span className="text-base font-bold">{MONTHS[month.getMonth()]} {month.getFullYear()}</span>
+            <button onClick={nextMonth} className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-800 transition-colors text-gray-400 hover:text-white">›</button>
           </div>
-        ) : upcoming.length === 0 ? (
-          <div className="text-center py-24">
-            <div className="text-5xl mb-4">📅</div>
-            <p className="text-lg font-medium text-gray-400">Nenhuma visita agendada</p>
-            {isAdmin && (
-              <button onClick={openNew} className="mt-4 text-orange-400 hover:text-orange-300 text-sm underline">
-                Agendar primeira visita
-              </button>
-            )}
-          </div>
-        ) : (
-          <div className="space-y-8">
-            <p className="text-sm text-gray-400">
-              <span className="font-semibold text-white">{upcoming.length}</span> visita{upcoming.length !== 1 ? "s" : ""} programada{upcoming.length !== 1 ? "s" : ""}
-            </p>
-            {sortedDates.map((dateKey) => (
-              <div key={dateKey}>
-                <div className="flex items-center gap-3 mb-3">
-                  <div className="h-px flex-1 bg-gray-800" />
-                  <span className="text-xs font-semibold text-orange-400 uppercase tracking-wider px-2">
-                    {formatDate(dateKey + "T12:00:00")}
-                  </span>
-                  <div className="h-px flex-1 bg-gray-800" />
-                </div>
-                <div className="space-y-3">
-                  {groups[dateKey].map((v) => (
-                    <VisitCard key={v.id} visit={v} isAdmin={isAdmin} onEdit={openEdit} onDelete={setDeleteId} />
-                  ))}
-                </div>
-              </div>
+
+          {/* Day names */}
+          <div className="grid grid-cols-7 px-3 pb-1">
+            {DAYS.map(d => (
+              <div key={d} className="text-center text-xs font-semibold text-gray-500 py-1">{d}</div>
             ))}
           </div>
-        )}
 
-        {past.length > 0 && (
-          <details className="mt-12">
-            <summary className="cursor-pointer text-sm text-gray-500 hover:text-gray-400 transition-colors">
-              Ver {past.length} visita{past.length !== 1 ? "s" : ""} passada{past.length !== 1 ? "s" : ""}
-            </summary>
-            <div className="mt-4 space-y-3 opacity-50">
-              {past.slice().reverse().map((v) => (
-                <VisitCard key={v.id} visit={v} isAdmin={isAdmin} onEdit={openEdit} onDelete={setDeleteId} />
-              ))}
+          {/* Day cells */}
+          <div className="grid grid-cols-7 px-3 pb-4 gap-y-1">
+            {cells.map((day, i) => {
+              if (!day) return <div key={i} />;
+              const key = `${month.getFullYear()}-${String(month.getMonth()+1).padStart(2,"0")}-${String(day).padStart(2,"0")}`;
+              const dayVisits = byDate[key] || [];
+              const isToday = key === todayKey;
+              const isSelected = key === selected;
+              const hasVisita = dayVisits.some(v => v.type === "visita");
+              const hasVistoria = dayVisits.some(v => v.type === "vistoria");
+              const isPast = key < todayKey;
+
+              return (
+                <button key={i} onClick={() => selectDay(day)}
+                  className={`relative flex flex-col items-center justify-start pt-1.5 pb-1 rounded-xl transition-all min-h-[52px]
+                    ${isSelected ? "bg-orange-500" : isToday ? "bg-gray-800 ring-2 ring-orange-500" : "hover:bg-gray-800"}
+                    ${isPast && !isSelected ? "opacity-50" : ""}`}>
+                  <span className={`text-sm font-semibold leading-none ${isSelected ? "text-white" : isToday ? "text-orange-400" : "text-gray-200"}`}>
+                    {day}
+                  </span>
+                  {dayVisits.length > 0 && (
+                    <div className="flex gap-0.5 mt-1.5 items-center justify-center">
+                      {hasVisita && <span className={`w-1.5 h-1.5 rounded-full ${isSelected ? "bg-white" : "bg-orange-400"}`} />}
+                      {hasVistoria && <span className={`w-1.5 h-1.5 rounded-full ${isSelected ? "bg-white/70" : "bg-blue-400"}`} />}
+                    </div>
+                  )}
+                  {dayVisits.length > 1 && (
+                    <span className={`text-[10px] font-bold mt-0.5 leading-none ${isSelected ? "text-white/80" : "text-gray-400"}`}>
+                      {dayVisits.length}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Legend */}
+          <div className="flex items-center gap-4 px-5 pb-4 border-t border-gray-800 pt-3">
+            <div className="flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-orange-400" />
+              <span className="text-xs text-gray-400">Visita</span>
             </div>
-          </details>
-        )}
-      </main>
+            <div className="flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-blue-400" />
+              <span className="text-xs text-gray-400">Vistoria</span>
+            </div>
+          </div>
+        </div>
 
-      {/* Modal form (admin only) */}
+        {/* Selected day panel */}
+        {selected && (
+          <div className="bg-gray-900 rounded-2xl border border-gray-800 overflow-hidden">
+            <div className="flex items-center justify-between px-5 py-3 border-b border-gray-800">
+              <div>
+                <p className="text-sm font-bold text-white capitalize">{formatFullDate(selected)}</p>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  {selectedVisits.length === 0 ? "Sem agendamentos" : `${selectedVisits.length} agendamento${selectedVisits.length>1?"s":""}`}
+                </p>
+              </div>
+              {isAdmin && (
+                <button onClick={() => openNew(selected)}
+                  className="w-8 h-8 rounded-full bg-orange-500 hover:bg-orange-600 flex items-center justify-center text-white font-bold text-lg transition-colors leading-none">
+                  +
+                </button>
+              )}
+            </div>
+
+            {loading ? (
+              <div className="py-8 text-center text-gray-500 text-sm">Carregando...</div>
+            ) : selectedVisits.length === 0 ? (
+              <div className="py-8 text-center">
+                <p className="text-gray-600 text-sm">Nenhum agendamento neste dia</p>
+                {isAdmin && (
+                  <button onClick={() => openNew(selected)} className="mt-2 text-orange-400 hover:text-orange-300 text-xs underline">
+                    Agendar aqui
+                  </button>
+                )}
+              </div>
+            ) : (
+              <div className="divide-y divide-gray-800">
+                {selectedVisits.sort((a,b) => +new Date(a.date) - +new Date(b.date)).map(v => (
+                  <DayVisitRow key={v.id} visit={v} isAdmin={isAdmin} onEdit={openEdit} onDelete={setDeleteId} />
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Form modal */}
       {showForm && isAdmin && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center px-4 pb-4 sm:pb-0">
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center px-4 pb-4 sm:pb-0">
           <div className="bg-gray-900 border border-gray-700 rounded-2xl w-full max-w-md p-6">
-            <h2 className="text-lg font-bold mb-5">{editing ? "Editar visita" : "Nova visita"}</h2>
-            <form onSubmit={handleSave} className="space-y-4">
-              <Field label="Tipo">
-                <div className="flex gap-2">
-                  {["visita", "vistoria"].map((t) => (
-                    <button key={t} type="button" onClick={() => setForm((f) => ({ ...f, type: t }))}
-                      className={`flex-1 py-2.5 rounded-lg text-sm font-medium border transition-colors ${form.type === t ? "bg-orange-500 border-orange-500 text-white" : "bg-gray-800 border-gray-700 text-gray-400 hover:border-gray-600"}`}>
-                      {t === "visita" ? "👥 Visita" : "📋 Vistoria"}
-                    </button>
-                  ))}
-                </div>
-              </Field>
-              <Field label="Visitante / Empresa">
-                <input type="text" value={form.visitor} onChange={(e) => setForm((f) => ({ ...f, visitor: e.target.value }))} required
-                  placeholder="Ex: Engenheiro João Silva"
-                  className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2.5 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-orange-500 text-sm" />
-              </Field>
-              <Field label="Data e horário">
-                <input type="datetime-local" value={form.date} onChange={(e) => setForm((f) => ({ ...f, date: e.target.value }))} required
-                  className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2.5 text-white focus:outline-none focus:ring-2 focus:ring-orange-500 text-sm" />
-              </Field>
-              <Field label="Observações (opcional)">
-                <textarea value={form.notes} onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))} rows={3}
-                  placeholder="Instruções para a equipe da obra..."
-                  className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2.5 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-orange-500 text-sm resize-none" />
-              </Field>
-              <div className="flex gap-3 pt-2">
-                <button type="button" onClick={() => setShowForm(false)}
-                  className="flex-1 py-2.5 rounded-lg border border-gray-700 text-gray-300 hover:bg-gray-800 transition-colors text-sm font-medium">
+            <h2 className="text-base font-bold mb-4">{editing ? "Editar agendamento" : "Novo agendamento"}</h2>
+            <form onSubmit={handleSave} className="space-y-3">
+              <div className="flex gap-2">
+                {["visita","vistoria"].map(t => (
+                  <button key={t} type="button" onClick={() => setForm(f=>({...f,type:t}))}
+                    className={`flex-1 py-2.5 rounded-lg text-sm font-medium border transition-colors ${form.type===t ? "bg-orange-500 border-orange-500 text-white" : "bg-gray-800 border-gray-700 text-gray-400"}`}>
+                    {t==="visita" ? "👥 Visita" : "📋 Vistoria"}
+                  </button>
+                ))}
+              </div>
+              <input type="text" value={form.visitor} onChange={e=>setForm(f=>({...f,visitor:e.target.value}))} required
+                placeholder="Visitante / Empresa"
+                className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2.5 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-orange-500 text-sm" />
+              <input type="datetime-local" value={form.date} onChange={e=>setForm(f=>({...f,date:e.target.value}))} required
+                className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2.5 text-white focus:outline-none focus:ring-2 focus:ring-orange-500 text-sm" />
+              <textarea value={form.notes} onChange={e=>setForm(f=>({...f,notes:e.target.value}))} rows={2}
+                placeholder="Observações para a equipe (opcional)"
+                className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2.5 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-orange-500 text-sm resize-none" />
+              <div className="flex gap-2 pt-1">
+                <button type="button" onClick={()=>setShowForm(false)}
+                  className="flex-1 py-2.5 rounded-lg border border-gray-700 text-gray-300 hover:bg-gray-800 text-sm font-medium transition-colors">
                   Cancelar
                 </button>
                 <button type="submit" disabled={saving}
-                  className="flex-1 py-2.5 rounded-lg bg-orange-500 hover:bg-orange-600 disabled:opacity-60 text-white font-semibold text-sm transition-colors">
-                  {saving ? "Salvando..." : editing ? "Salvar" : "Criar"}
+                  className="flex-1 py-2.5 rounded-lg bg-orange-500 hover:bg-orange-600 disabled:opacity-60 text-white font-bold text-sm transition-colors">
+                  {saving ? "Salvando..." : editing ? "Salvar" : "Agendar"}
                 </button>
               </div>
             </form>
@@ -263,20 +291,13 @@ export default function CronogramaPage() {
 
       {/* Delete confirm */}
       {deleteId && isAdmin && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center px-4">
-          <div className="bg-gray-900 border border-gray-700 rounded-2xl w-full max-w-sm p-6 text-center">
-            <div className="text-4xl mb-3">🗑️</div>
-            <h2 className="text-base font-bold mb-1">Remover visita?</h2>
-            <p className="text-gray-400 text-sm mb-5">Essa ação não pode ser desfeita.</p>
-            <div className="flex gap-3">
-              <button onClick={() => setDeleteId(null)}
-                className="flex-1 py-2.5 rounded-lg border border-gray-700 text-gray-300 hover:bg-gray-800 transition-colors text-sm font-medium">
-                Cancelar
-              </button>
-              <button onClick={() => handleDelete(deleteId)}
-                className="flex-1 py-2.5 rounded-lg bg-red-600 hover:bg-red-700 text-white font-semibold text-sm transition-colors">
-                Remover
-              </button>
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center px-4">
+          <div className="bg-gray-900 border border-gray-700 rounded-2xl w-full max-w-xs p-5 text-center">
+            <p className="font-bold mb-1">Remover agendamento?</p>
+            <p className="text-gray-400 text-sm mb-4">Não pode ser desfeito.</p>
+            <div className="flex gap-2">
+              <button onClick={()=>setDeleteId(null)} className="flex-1 py-2 rounded-lg border border-gray-700 text-gray-300 text-sm font-medium">Cancelar</button>
+              <button onClick={()=>handleDelete(deleteId)} className="flex-1 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white text-sm font-bold">Remover</button>
             </div>
           </div>
         </div>
@@ -285,42 +306,31 @@ export default function CronogramaPage() {
   );
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div>
-      <label className="block text-sm font-medium text-gray-300 mb-1.5">{label}</label>
-      {children}
-    </div>
-  );
-}
-
-function VisitCard({ visit, isAdmin, onEdit, onDelete }: {
+function DayVisitRow({ visit, isAdmin, onEdit, onDelete }: {
   visit: Visit; isAdmin: boolean;
   onEdit: (v: Visit) => void;
   onDelete: (id: string) => void;
 }) {
   const isVistoria = visit.type === "vistoria";
   return (
-    <div className="bg-gray-900 border border-gray-800 rounded-xl p-4 flex gap-3 group">
-      <div className={`w-9 h-9 rounded-lg flex items-center justify-center text-base flex-shrink-0 ${isVistoria ? "bg-blue-900/40 border border-blue-800" : "bg-orange-900/40 border border-orange-800"}`}>
+    <div className="flex items-start gap-3 px-5 py-3 group">
+      <div className={`mt-0.5 w-8 h-8 rounded-lg flex items-center justify-center text-sm flex-shrink-0 ${isVistoria ? "bg-blue-900/50 border border-blue-800/60" : "bg-orange-900/50 border border-orange-800/60"}`}>
         {isVistoria ? "📋" : "👥"}
       </div>
       <div className="flex-1 min-w-0">
-        <div className="flex items-start justify-between gap-2">
-          <p className="font-semibold text-white truncate">{visit.visitor}</p>
-          <span className={`text-xs font-medium px-2 py-0.5 rounded-full flex-shrink-0 ${isVistoria ? "bg-blue-900/50 text-blue-300 border border-blue-800" : "bg-orange-900/50 text-orange-300 border border-orange-800"}`}>
-            {isVistoria ? "Vistoria" : "Visita"}
+        <div className="flex items-center gap-2">
+          <span className={`text-xs font-semibold px-1.5 py-0.5 rounded ${isVistoria ? "bg-blue-900/60 text-blue-300" : "bg-orange-900/60 text-orange-300"}`}>
+            {formatTime(visit.date)}
           </span>
+          <span className={`text-xs text-gray-500`}>{isVistoria ? "Vistoria" : "Visita"}</span>
         </div>
-        <p className="text-sm text-gray-400 mt-0.5">🕐 {formatTime(visit.date)}</p>
-        {visit.notes && (
-          <p className="text-sm text-gray-400 mt-2 bg-gray-800/60 rounded-lg px-3 py-2 border border-gray-700">{visit.notes}</p>
-        )}
+        <p className="text-sm font-semibold text-white mt-1">{visit.visitor}</p>
+        {visit.notes && <p className="text-xs text-gray-400 mt-1 leading-relaxed">{visit.notes}</p>}
       </div>
       {isAdmin && (
-        <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
-          <button onClick={() => onEdit(visit)} className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-gray-800 transition-colors text-sm">✏️</button>
-          <button onClick={() => onDelete(visit.id)} className="p-1.5 rounded-lg text-gray-400 hover:text-red-400 hover:bg-gray-800 transition-colors text-sm">🗑️</button>
+        <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+          <button onClick={()=>onEdit(visit)} className="p-1.5 rounded-lg text-gray-500 hover:text-white hover:bg-gray-800 text-sm transition-colors">✏️</button>
+          <button onClick={()=>onDelete(visit.id)} className="p-1.5 rounded-lg text-gray-500 hover:text-red-400 hover:bg-gray-800 text-sm transition-colors">🗑️</button>
         </div>
       )}
     </div>
