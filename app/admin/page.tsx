@@ -43,11 +43,15 @@ export default function AdminPage() {
     notes: "",
   });
 
-  async function loadVisits(key: string) {
+  async function loadVisits(_key: string) {
     setLoading(true);
-    const r = await fetch("/api/visits");
-    const data = await r.json();
-    setVisits(data);
+    try {
+      const r = await fetch("/api/visits");
+      const data = await r.json();
+      setVisits(Array.isArray(data) ? data : []);
+    } catch {
+      setVisits([]);
+    }
     setLoading(false);
   }
 

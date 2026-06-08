@@ -43,9 +43,10 @@ export default function ObraPage() {
     fetch("/api/visits")
       .then((r) => r.json())
       .then((data) => {
-        setVisits(data);
+        setVisits(Array.isArray(data) ? data : []);
         setLoading(false);
-      });
+      })
+      .catch(() => setLoading(false));
   }, []);
 
   const now = new Date();
