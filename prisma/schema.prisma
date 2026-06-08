@@ -21,6 +21,7 @@ model Visit {
   visitor   String
   type      String   // "visita" | "vistoria"
   notes     String?
+  status    String   @default("pendente") // "pendente" | "concluida" | "nao_realizada"
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }

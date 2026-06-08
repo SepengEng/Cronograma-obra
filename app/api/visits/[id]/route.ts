@@ -13,13 +13,14 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
   }
   const { id } = await params;
-  const { date, visitor, type, notes } = await req.json();
+  const { date, visitor, type, notes, status } = await req.json();
   const visit = await prisma.visit.update({
     where: { id },
     data: {
       ...(date && { date: new Date(date) }),
       ...(visitor && { visitor }),
       ...(type && { type }),
+      ...(status && { status }),
       notes: notes ?? undefined,
     },
   });
