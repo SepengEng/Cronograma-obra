@@ -4,7 +4,8 @@ import { useEffect, useState, FormEvent } from "react";
 import { useRouter } from "next/navigation";
 
 type Role = "admin" | "obra";
-type Session = { role: Role; secret: string };
+type Session = { role: Role; name: string; id: string };
+type AppUser = { id: string; name: string; role: string; createdAt: string };
 type Visit = { id: string; date: string; visitor: string; type: string; notes: string | null };
 
 const MONTHS = ["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
@@ -38,6 +39,8 @@ export default function CronogramaPage() {
   const [saving, setSaving] = useState(false);
   const [deleteId, setDeleteId] = useState<string|null>(null);
   const [form, setForm] = useState({ date:"", visitor:"", type:"visita", notes:"" });
+  const [showUsers, setShowUsers] = useState(false);
+  const [users, setUsers] = useState<AppUser[]>([]);
 
   useEffect(() => {
     const raw = localStorage.getItem("session");
@@ -50,6 +53,29 @@ export default function CronogramaPage() {
       .catch(() => {})
       .finally(() => setLoading(false));
   }, [router]);
+
+  async function loadUsers(s: Session) {
+    const r = await fetch("/api/users", { headers: { "x-user-id": s.id } });
+    if (r.ok) setUsers(await r.json());
+  }
+
+  async function toggleRole(userId: string, currentRole: string, s: Session) {
+    const newRole = currentRole === "admin" ? "obra" : "admin";
+    const r = await fetch(`/api/users/${userId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", "x-user-id": s.id },
+      body: JSON.stringify({ role: newRole }),
+    });
+    if (r.ok) setUsers(prev => prev.map(u => u.id === userId ? { ...u, role: newRole } : u));
+  }
+
+  async function deleteUser(userId: string, s: Session) {
+    const r = await fetch(`/api/users/${userId}`, {
+      method: "DELETE",
+      headers: { "x-user-id": s.id },
+    });
+    if (r.ok) setUsers(prev => prev.filter(u => u.id !== userId));
+  }
 
   // Group visits by date key
   const byDate: Record<string, Visit[]> = {};
@@ -96,13 +122,13 @@ export default function CronogramaPage() {
     const body = { date: new Date(form.date).toISOString(), visitor: form.visitor, type: form.type, notes: form.notes || null };
     if (editing) {
       const r = await fetch(`/api/visits/${editing.id}`, {
-        method:"PATCH", headers:{"Content-Type":"application/json","x-admin-secret":session.secret},
+        method:"PATCH", headers:{"Content-Type":"application/json","x-user-id":session.id},
         body: JSON.stringify(body),
       });
       if (r.ok) { const u = await r.json(); setVisits(p => p.map(v => v.id===u.id ? u : v)); }
     } else {
       const r = await fetch("/api/visits", {
-        method:"POST", headers:{"Content-Type":"application/json","x-admin-secret":session.secret},
+        method:"POST", headers:{"Content-Type":"application/json","x-user-id":session.id},
         body: JSON.stringify(body),
       });
       if (r.ok) { const c = await r.json(); setVisits(p => [...p,c]); }
@@ -113,7 +139,7 @@ export default function CronogramaPage() {
 
   async function handleDelete(id: string) {
     if (!session) return;
-    await fetch(`/api/visits/${id}`, { method:"DELETE", headers:{"x-admin-secret":session.secret} });
+    await fetch(`/api/visits/${id}`, { method:"DELETE", headers:{"x-user-id":session.id} });
     setVisits(p => p.filter(v => v.id !== id));
     setDeleteId(null);
   }
@@ -128,15 +154,21 @@ export default function CronogramaPage() {
           <div className="w-8 h-8 bg-orange-500 rounded-lg flex items-center justify-center text-base">🏗️</div>
           <div>
             <p className="text-sm font-bold text-white leading-tight">Cronograma de Obra</p>
-            <p className="text-xs text-gray-500 leading-tight">{isAdmin ? "Escritório" : "Equipe da obra"}</p>
+            <p className="text-xs text-gray-500 leading-tight">{session?.name} · {isAdmin ? "Admin" : "Obra"}</p>
           </div>
         </div>
         <div className="flex items-center gap-2">
           {isAdmin && (
-            <button onClick={() => openNew()}
-              className="flex items-center gap-1 bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold px-3 py-1.5 rounded-lg transition-colors">
-              + Agendar
-            </button>
+            <>
+              <button onClick={() => { setShowUsers(true); loadUsers(session!); }}
+                className="text-xs text-gray-400 hover:text-white px-2 py-1.5 transition-colors">
+                👥 Usuários
+              </button>
+              <button onClick={() => openNew()}
+                className="flex items-center gap-1 bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold px-3 py-1.5 rounded-lg transition-colors">
+                + Agendar
+              </button>
+            </>
           )}
           <button onClick={() => { localStorage.removeItem("session"); router.replace("/"); }}
             className="text-xs text-gray-500 hover:text-gray-300 px-2 py-1.5 transition-colors">
@@ -285,6 +317,51 @@ export default function CronogramaPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Users modal */}
+      {showUsers && isAdmin && session && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center px-4 pb-4 sm:pb-0">
+          <div className="bg-gray-900 border border-gray-700 rounded-2xl w-full max-w-md flex flex-col max-h-[80vh]">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-800">
+              <h2 className="text-base font-bold">👥 Usuários</h2>
+              <button onClick={() => setShowUsers(false)} className="text-gray-500 hover:text-white text-lg leading-none">×</button>
+            </div>
+            <div className="overflow-y-auto flex-1">
+              {users.length === 0 ? (
+                <p className="text-gray-500 text-sm text-center py-8">Nenhum usuário</p>
+              ) : (
+                <div className="divide-y divide-gray-800">
+                  {users.map(u => (
+                    <div key={u.id} className="flex items-center gap-3 px-5 py-3">
+                      <div className="w-8 h-8 rounded-full bg-gray-700 flex items-center justify-center text-sm font-bold text-gray-300 flex-shrink-0">
+                        {u.name[0].toUpperCase()}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-white truncate">{u.name}</p>
+                        <span className={`text-xs font-semibold ${u.role === "admin" ? "text-orange-400" : "text-gray-500"}`}>
+                          {u.role === "admin" ? "Admin" : "Obra"}
+                        </span>
+                      </div>
+                      {u.id !== session.id && (
+                        <div className="flex items-center gap-1">
+                          <button onClick={() => toggleRole(u.id, u.role, session)}
+                            className="text-xs text-gray-400 hover:text-white border border-gray-700 hover:border-gray-500 px-2 py-1 rounded-lg transition-colors">
+                            {u.role === "admin" ? "→ Obra" : "→ Admin"}
+                          </button>
+                          <button onClick={() => deleteUser(u.id, session)}
+                            className="text-xs text-gray-500 hover:text-red-400 px-2 py-1 rounded-lg transition-colors">
+                            🗑️
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}

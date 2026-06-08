@@ -13,17 +13,9 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
   }
   const { id } = await params;
-  const { date, visitor, type, notes } = await req.json();
-  const visit = await prisma.visit.update({
-    where: { id },
-    data: {
-      ...(date && { date: new Date(date) }),
-      ...(visitor && { visitor }),
-      ...(type && { type }),
-      notes: notes ?? undefined,
-    },
-  });
-  return NextResponse.json(visit);
+  const { role } = await req.json();
+  const user = await prisma.user.update({ where: { id }, data: { role } });
+  return NextResponse.json({ id: user.id, name: user.name, role: user.role });
 }
 
 export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -31,6 +23,10 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
     return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
   }
   const { id } = await params;
-  await prisma.visit.delete({ where: { id } });
+  const requesterId = req.headers.get("x-user-id");
+  if (id === requesterId) {
+    return NextResponse.json({ error: "Não é possível excluir sua própria conta" }, { status: 400 });
+  }
+  await prisma.user.delete({ where: { id } });
   return NextResponse.json({ ok: true });
 }
