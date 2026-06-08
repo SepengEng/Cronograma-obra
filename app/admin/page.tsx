@@ -57,16 +57,22 @@ export default function AdminPage() {
 
   async function handleLogin(e: FormEvent) {
     e.preventDefault();
-    const r = await fetch("/api/visits", {
-      headers: { "x-admin-secret": secret },
-    });
-    if (r.ok) {
-      setAuthed(true);
-      setAuthError("");
-      localStorage.setItem("admin_secret", secret);
-      loadVisits(secret);
-    } else {
-      setAuthError("Senha incorreta.");
+    try {
+      const r = await fetch("/api/auth", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ secret }),
+      });
+      if (r.ok) {
+        setAuthed(true);
+        setAuthError("");
+        localStorage.setItem("admin_secret", secret);
+        loadVisits(secret);
+      } else {
+        setAuthError("Senha incorreta.");
+      }
+    } catch {
+      setAuthError("Erro de conexão. Tente novamente.");
     }
   }
 
@@ -74,12 +80,18 @@ export default function AdminPage() {
     const saved = localStorage.getItem("admin_secret");
     if (saved) {
       setSecret(saved);
-      fetch("/api/visits", { headers: { "x-admin-secret": saved } }).then((r) => {
+      fetch("/api/auth", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ secret: saved }),
+      }).then((r) => {
         if (r.ok) {
           setAuthed(true);
-          r.json().then(setVisits);
+          loadVisits(saved);
+        } else {
+          localStorage.removeItem("admin_secret");
         }
-      });
+      }).catch(() => {});
     }
   }, []);
 
