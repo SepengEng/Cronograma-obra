@@ -4,7 +4,7 @@ import { useState, FormEvent, useEffect } from "react";
 import { useRouter } from "next/navigation";
 
 export default function LoginPage() {
-  const [tab, setTab] = useState<"login" | "register">("login");
+  const [mode, setMode] = useState<"login" | "register">("login");
   const [name, setName] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -16,43 +16,17 @@ export default function LoginPage() {
     if (localStorage.getItem("session")) router.replace("/cronograma");
   }, [router]);
 
-  function reset() {
-    setErro("");
-    setName("");
-    setPassword("");
-    setConfirmPassword("");
-  }
-
-  async function handleLogin(e: FormEvent) {
+  async function handleSubmit(e: FormEvent) {
     e.preventDefault();
-    setLoading(true);
-    setErro("");
-    try {
-      const r = await fetch("/api/auth", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: name.trim(), password }),
-      });
-      const data = await r.json();
-      if (r.ok) {
-        localStorage.setItem("session", JSON.stringify({ role: data.role, name: data.name, id: data.id }));
-        router.replace("/cronograma");
-      } else {
-        setErro(data.error || "Erro ao entrar.");
-      }
-    } catch {
-      setErro("Erro de conexão. Tente novamente.");
+    if (mode === "register" && password !== confirmPassword) {
+      setErro("As senhas não coincidem.");
+      return;
     }
-    setLoading(false);
-  }
-
-  async function handleRegister(e: FormEvent) {
-    e.preventDefault();
-    if (password !== confirmPassword) { setErro("As senhas não coincidem."); return; }
     setLoading(true);
     setErro("");
+    const endpoint = mode === "login" ? "/api/auth" : "/api/register";
     try {
-      const r = await fetch("/api/register", {
+      const r = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name: name.trim(), password }),
@@ -62,7 +36,7 @@ export default function LoginPage() {
         localStorage.setItem("session", JSON.stringify({ role: data.role, name: data.name, id: data.id }));
         router.replace("/cronograma");
       } else {
-        setErro(data.error || "Erro ao cadastrar.");
+        setErro(data.error || "Ocorreu um erro.");
       }
     } catch {
       setErro("Erro de conexão. Tente novamente.");
@@ -71,58 +45,74 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-950 flex items-center justify-center px-4">
-      <div className="w-full max-w-sm">
+    <div className="min-h-screen bg-[#0a0a0f] flex flex-col items-center justify-center px-4">
+      {/* Background glow */}
+      <div className="pointer-events-none fixed inset-0 overflow-hidden">
+        <div className="absolute -top-40 left-1/2 -translate-x-1/2 w-[600px] h-[600px] bg-orange-500/10 rounded-full blur-[120px]" />
+      </div>
+
+      <div className="relative w-full max-w-md">
         {/* Logo */}
-        <div className="text-center mb-8">
-          <div className="w-16 h-16 bg-orange-500 rounded-2xl flex items-center justify-center text-3xl mx-auto mb-4">🏗️</div>
-          <h1 className="text-2xl font-bold text-white">Cronograma de Obra</h1>
-          <p className="text-gray-500 mt-1 text-sm">Visitas e vistorias</p>
+        <div className="text-center mb-10">
+          <div className="inline-flex w-20 h-20 bg-gradient-to-br from-orange-400 to-orange-600 rounded-3xl items-center justify-center text-4xl mb-5 shadow-lg shadow-orange-500/20">
+            🏗️
+          </div>
+          <h1 className="text-3xl font-bold text-white tracking-tight">Cronograma de Obra</h1>
+          <p className="text-gray-500 mt-2">Visitas e vistorias agendadas</p>
         </div>
 
-        {/* Tabs */}
-        <div className="flex bg-gray-900 rounded-xl p-1 mb-6 border border-gray-800">
-          {(["login", "register"] as const).map((t) => (
-            <button key={t} onClick={() => { setTab(t); reset(); }}
-              className={`flex-1 py-2 text-sm font-semibold rounded-lg transition-colors ${tab === t ? "bg-orange-500 text-white" : "text-gray-400 hover:text-white"}`}>
-              {t === "login" ? "Entrar" : "Cadastrar"}
-            </button>
-          ))}
-        </div>
+        {/* Card */}
+        <div className="bg-white/5 backdrop-blur border border-white/10 rounded-2xl p-8 shadow-2xl">
+          {/* Mode toggle */}
+          <div className="flex bg-black/30 rounded-xl p-1 mb-7 gap-1">
+            {(["login", "register"] as const).map((m) => (
+              <button key={m} onClick={() => { setMode(m); setErro(""); }}
+                className={`flex-1 py-2.5 text-sm font-semibold rounded-lg transition-all ${mode === m ? "bg-orange-500 text-white shadow-md" : "text-gray-400 hover:text-white"}`}>
+                {m === "login" ? "Entrar" : "Primeiro acesso"}
+              </button>
+            ))}
+          </div>
 
-        {tab === "login" ? (
-          <form onSubmit={handleLogin} className="space-y-3">
-            <input type="text" value={name} onChange={e => setName(e.target.value)} required
-              placeholder="Seu nome" autoFocus
-              className="w-full bg-gray-800 border border-gray-700 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-orange-500" />
-            <input type="password" value={password} onChange={e => setPassword(e.target.value)} required
-              placeholder="Senha"
-              className="w-full bg-gray-800 border border-gray-700 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-orange-500" />
-            {erro && <p className="text-red-400 text-sm">{erro}</p>}
-            <button type="submit" disabled={loading || !name || !password}
-              className="w-full bg-orange-500 hover:bg-orange-600 disabled:opacity-50 text-white font-bold py-3 rounded-xl transition-colors">
-              {loading ? "Entrando..." : "Entrar"}
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">Nome</label>
+              <input type="text" value={name} onChange={e => setName(e.target.value)} required autoFocus
+                placeholder="Como você se chama"
+                className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3.5 text-white placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all text-sm" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">Senha</label>
+              <input type="password" value={password} onChange={e => setPassword(e.target.value)} required
+                placeholder="••••••••"
+                className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3.5 text-white placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all text-sm" />
+            </div>
+            {mode === "register" && (
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">Confirmar senha</label>
+                <input type="password" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} required
+                  placeholder="••••••••"
+                  className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3.5 text-white placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all text-sm" />
+              </div>
+            )}
+
+            {erro && (
+              <div className="bg-red-500/10 border border-red-500/30 rounded-xl px-4 py-3 text-red-400 text-sm">
+                {erro}
+              </div>
+            )}
+
+            <button type="submit" disabled={loading || !name || !password || (mode === "register" && !confirmPassword)}
+              className="w-full bg-orange-500 hover:bg-orange-400 disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold py-4 rounded-xl transition-all text-sm shadow-lg shadow-orange-500/20 mt-2">
+              {loading ? "Aguarde..." : mode === "login" ? "Entrar" : "Criar conta de administrador"}
             </button>
+
+            {mode === "register" && (
+              <p className="text-xs text-gray-600 text-center leading-relaxed">
+                Disponível apenas para o primeiro acesso.<br />Novos usuários são criados pelo administrador.
+              </p>
+            )}
           </form>
-        ) : (
-          <form onSubmit={handleRegister} className="space-y-3">
-            <input type="text" value={name} onChange={e => setName(e.target.value)} required
-              placeholder="Seu nome" autoFocus
-              className="w-full bg-gray-800 border border-gray-700 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-orange-500" />
-            <input type="password" value={password} onChange={e => setPassword(e.target.value)} required
-              placeholder="Crie uma senha"
-              className="w-full bg-gray-800 border border-gray-700 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-orange-500" />
-            <input type="password" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} required
-              placeholder="Confirme a senha"
-              className="w-full bg-gray-800 border border-gray-700 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-orange-500" />
-            {erro && <p className="text-red-400 text-sm">{erro}</p>}
-            <button type="submit" disabled={loading || !name || !password || !confirmPassword}
-              className="w-full bg-orange-500 hover:bg-orange-600 disabled:opacity-50 text-white font-bold py-3 rounded-xl transition-colors">
-              {loading ? "Cadastrando..." : "Cadastrar"}
-            </button>
-            <p className="text-xs text-gray-600 text-center">O primeiro cadastro vira administrador automaticamente.</p>
-          </form>
-        )}
+        </div>
       </div>
     </div>
   );
