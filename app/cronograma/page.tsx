@@ -121,17 +121,17 @@ export default function CronogramaPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#0a0a0f] text-white flex flex-col">
+    <div className="min-h-screen bg-[#0B1929] text-white flex flex-col">
 
       {/* Header */}
-      <header className="bg-[#0f0f17] border-b border-white/5 px-5 py-4">
+      <header className="bg-[#0F1E2E] border-b border-white/5 px-5 py-4">
         <div className="max-w-2xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-gradient-to-br from-orange-400 to-orange-600 rounded-xl flex items-center justify-center text-xl shadow-md shadow-orange-500/20 flex-shrink-0">🏗️</div>
+            <div className="w-10 h-10 bg-gradient-to-br from-[#2AB9B0] to-[#18ABDA] rounded-xl flex items-center justify-center text-xl shadow-md shadow-[#2AB9B0]/20 flex-shrink-0">🏗️</div>
             <div>
               <p className="font-bold text-white text-base leading-tight">Cronograma de Obra</p>
               <p className="text-xs text-gray-500 leading-tight mt-0.5">
-                {session?.name} <span className={`font-semibold ${isAdmin?"text-orange-400":"text-gray-400"}`}>· {isAdmin?"Admin":"Obra"}</span>
+                {session?.name} <span className={`font-semibold ${isAdmin?"text-[#2AB9B0]":"text-gray-400"}`}>· {isAdmin?"Admin":"Obra"}</span>
               </p>
             </div>
           </div>
@@ -144,7 +144,7 @@ export default function CronogramaPage() {
                   <span className="hidden sm:inline">Usuários</span>
                 </button>
                 <button onClick={()=>openNew()}
-                  className="flex items-center gap-1.5 bg-orange-500 hover:bg-orange-400 text-white text-sm font-bold px-4 py-2 rounded-xl transition-all shadow-md shadow-orange-500/20">
+                  className="flex items-center gap-1.5 bg-[#2AB9B0] hover:bg-[#2AB9B0] text-white text-sm font-bold px-4 py-2 rounded-xl transition-all shadow-md shadow-[#2AB9B0]/20">
                   <span className="text-base leading-none">+</span>
                   <span className="hidden sm:inline">Agendar</span>
                 </button>
@@ -161,7 +161,7 @@ export default function CronogramaPage() {
       <div className="flex-1 max-w-2xl mx-auto w-full px-4 sm:px-6 py-6 flex flex-col gap-5">
 
         {/* Calendar card */}
-        <div className="bg-[#0f0f17] border border-white/5 rounded-2xl overflow-hidden shadow-xl">
+        <div className="bg-[#0F1E2E] border border-white/5 rounded-2xl overflow-hidden shadow-xl">
 
           {/* Month nav */}
           <div className="flex items-center justify-between px-6 py-5 border-b border-white/5">
@@ -193,15 +193,15 @@ export default function CronogramaPage() {
               return(
                 <button key={i} onClick={()=>setSelected(k)}
                   className={`relative flex flex-col items-center justify-center rounded-xl transition-all min-h-[60px] sm:min-h-[68px] gap-1
-                    ${isSel?"bg-orange-500 shadow-lg shadow-orange-500/20":isToday?"bg-orange-500/10 ring-1 ring-orange-500/50":"hover:bg-white/5"}
+                    ${isSel?"bg-[#2AB9B0] shadow-lg shadow-[#2AB9B0]/20":isToday?"bg-[#2AB9B0]/10 ring-1 ring-[#2AB9B0]/50":"hover:bg-white/5"}
                     ${isPast&&!isSel?"opacity-40":""}`}>
-                  <span className={`text-sm sm:text-base font-bold leading-none ${isSel?"text-white":isToday?"text-orange-400":"text-gray-200"}`}>
+                  <span className={`text-sm sm:text-base font-bold leading-none ${isSel?"text-white":isToday?"text-[#2AB9B0]":"text-gray-200"}`}>
                     {day}
                   </span>
                   {dv.length>0&&(
                     <div className="flex gap-0.5 items-center">
-                      {hasV&&<span className={`w-1.5 h-1.5 rounded-full ${isSel?"bg-white":"bg-orange-400"}`}/>}
-                      {hasVist&&<span className={`w-1.5 h-1.5 rounded-full ${isSel?"bg-white/70":"bg-blue-400"}`}/>}
+                      {hasV&&<span className={`w-1.5 h-1.5 rounded-full ${isSel?"bg-white":"bg-[#2AB9B0]"}`}/>}
+                      {hasVist&&<span className={`w-1.5 h-1.5 rounded-full ${isSel?"bg-white/70":"bg-[#18ABDA]"}`}/>}
                     </div>
                   )}
                 </button>
@@ -211,13 +211,13 @@ export default function CronogramaPage() {
 
           {/* Legend */}
           <div className="flex items-center gap-5 px-6 pb-5 border-t border-white/5 pt-4">
-            <div className="flex items-center gap-2"><span className="w-2.5 h-2.5 rounded-full bg-orange-400"/><span className="text-xs text-gray-500">Visita</span></div>
-            <div className="flex items-center gap-2"><span className="w-2.5 h-2.5 rounded-full bg-blue-400"/><span className="text-xs text-gray-500">Vistoria</span></div>
+            <div className="flex items-center gap-2"><span className="w-2.5 h-2.5 rounded-full bg-[#2AB9B0]"/><span className="text-xs text-gray-500">Visita</span></div>
+            <div className="flex items-center gap-2"><span className="w-2.5 h-2.5 rounded-full bg-[#18ABDA]"/><span className="text-xs text-gray-500">Vistoria</span></div>
           </div>
         </div>
 
         {/* Day detail */}
-        <div className="bg-[#0f0f17] border border-white/5 rounded-2xl overflow-hidden shadow-xl">
+        <div className="bg-[#0F1E2E] border border-white/5 rounded-2xl overflow-hidden shadow-xl">
           <div className="flex items-center justify-between px-6 py-4 border-b border-white/5">
             <div>
               <p className="font-bold text-white capitalize">{fmtDay(selected)}</p>
@@ -227,7 +227,7 @@ export default function CronogramaPage() {
             </div>
             {isAdmin&&(
               <button onClick={()=>openNew(selected)}
-                className="flex items-center gap-1.5 bg-white/5 hover:bg-orange-500 border border-white/10 hover:border-orange-500 text-gray-400 hover:text-white text-sm font-semibold px-4 py-2 rounded-xl transition-all">
+                className="flex items-center gap-1.5 bg-white/5 hover:bg-[#2AB9B0] border border-white/10 hover:border-[#2AB9B0] text-gray-400 hover:text-white text-sm font-semibold px-4 py-2 rounded-xl transition-all">
                 <span>+</span> Agendar
               </button>
             )}
@@ -253,7 +253,7 @@ export default function CronogramaPage() {
           const upNext = visits.filter(v=>toKey(new Date(v.date))>selected).slice(0,3);
           if(upNext.length===0) return null;
           return(
-            <div className="bg-[#0f0f17] border border-white/5 rounded-2xl overflow-hidden">
+            <div className="bg-[#0F1E2E] border border-white/5 rounded-2xl overflow-hidden">
               <p className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider border-b border-white/5">Próximos agendamentos</p>
               <div className="divide-y divide-white/5">
                 {upNext.map(v=>{
@@ -270,7 +270,7 @@ export default function CronogramaPage() {
                         <p className="text-sm font-semibold text-white truncate">{v.visitor}</p>
                         <p className="text-xs text-gray-500 mt-0.5">{fmtTime(v.date)} · {v.type==="vistoria"?"Vistoria":"Visita"}</p>
                       </div>
-                      <span className={`w-2 h-2 rounded-full flex-shrink-0 ${v.type==="vistoria"?"bg-blue-400":"bg-orange-400"}`}/>
+                      <span className={`w-2 h-2 rounded-full flex-shrink-0 ${v.type==="vistoria"?"bg-[#18ABDA]":"bg-[#2AB9B0]"}`}/>
                     </button>
                   );
                 })}
@@ -283,7 +283,7 @@ export default function CronogramaPage() {
       {/* Form modal */}
       {showForm&&isAdmin&&(
         <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-50 flex items-end sm:items-center justify-center p-4">
-          <div className="bg-[#141420] border border-white/10 rounded-2xl w-full max-w-md p-6 shadow-2xl">
+          <div className="bg-[#122030] border border-white/10 rounded-2xl w-full max-w-md p-6 shadow-2xl">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-lg font-bold">{editing?"Editar agendamento":"Novo agendamento"}</h2>
               <button onClick={()=>setShowForm(false)} className="text-gray-500 hover:text-white text-2xl leading-none transition-colors">×</button>
@@ -292,7 +292,7 @@ export default function CronogramaPage() {
               <div className="flex gap-2">
                 {["visita","vistoria"].map(t=>(
                   <button key={t} type="button" onClick={()=>setForm(f=>({...f,type:t}))}
-                    className={`flex-1 py-3 rounded-xl text-sm font-semibold border transition-all ${form.type===t?(t==="visita"?"bg-orange-500 border-orange-500 text-white":"bg-blue-600 border-blue-600 text-white"):"bg-white/5 border-white/10 text-gray-400 hover:border-white/20"}`}>
+                    className={`flex-1 py-3 rounded-xl text-sm font-semibold border transition-all ${form.type===t?(t==="visita"?"bg-[#2AB9B0] border-[#2AB9B0] text-white":"bg-[#18ABDA] border-[#18ABDA] text-white"):"bg-white/5 border-white/10 text-gray-400 hover:border-white/20"}`}>
                     {t==="visita"?"👥 Visita":"📋 Vistoria"}
                   </button>
                 ))}
@@ -301,24 +301,24 @@ export default function CronogramaPage() {
                 <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Visitante / Empresa</label>
                 <input type="text" value={form.visitor} onChange={e=>setForm(f=>({...f,visitor:e.target.value}))} required
                   placeholder="Nome ou empresa"
-                  className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-orange-500 text-sm"/>
+                  className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-[#2AB9B0] text-sm"/>
               </div>
               <div>
                 <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Data e horário</label>
                 <input type="datetime-local" value={form.date} onChange={e=>setForm(f=>({...f,date:e.target.value}))} required
-                  className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-orange-500 text-sm"/>
+                  className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-[#2AB9B0] text-sm"/>
               </div>
               <div>
                 <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Observações</label>
                 <textarea value={form.notes} onChange={e=>setForm(f=>({...f,notes:e.target.value}))} rows={3}
                   placeholder="Instruções para a equipe (opcional)"
-                  className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-orange-500 text-sm resize-none"/>
+                  className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-[#2AB9B0] text-sm resize-none"/>
               </div>
               <div className="flex gap-3 pt-2">
                 <button type="button" onClick={()=>setShowForm(false)}
                   className="flex-1 py-3 rounded-xl border border-white/10 text-gray-300 hover:bg-white/5 text-sm font-semibold transition-all">Cancelar</button>
                 <button type="submit" disabled={saving}
-                  className="flex-1 py-3 rounded-xl bg-orange-500 hover:bg-orange-400 disabled:opacity-50 text-white font-bold text-sm transition-all shadow-md shadow-orange-500/20">
+                  className="flex-1 py-3 rounded-xl bg-[#2AB9B0] hover:bg-[#2AB9B0] disabled:opacity-50 text-white font-bold text-sm transition-all shadow-md shadow-[#2AB9B0]/20">
                   {saving?"Salvando...":editing?"Salvar alterações":"Confirmar"}
                 </button>
               </div>
@@ -330,7 +330,7 @@ export default function CronogramaPage() {
       {/* Delete confirm */}
       {confirmDelete&&isAdmin&&(
         <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-50 flex items-center justify-center p-4">
-          <div className="bg-[#141420] border border-white/10 rounded-2xl w-full max-w-sm p-6 text-center shadow-2xl">
+          <div className="bg-[#122030] border border-white/10 rounded-2xl w-full max-w-sm p-6 text-center shadow-2xl">
             <div className="w-14 h-14 bg-red-500/10 rounded-2xl flex items-center justify-center text-3xl mx-auto mb-4">🗑️</div>
             <p className="font-bold text-white text-lg mb-1">Remover agendamento?</p>
             <p className="text-gray-500 text-sm mb-6">Essa ação não pode ser desfeita.</p>
@@ -347,7 +347,7 @@ export default function CronogramaPage() {
       {/* Users modal */}
       {showUsers&&isAdmin&&session&&(
         <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-50 flex items-end sm:items-center justify-center p-4">
-          <div className="bg-[#141420] border border-white/10 rounded-2xl w-full max-w-md shadow-2xl flex flex-col max-h-[85vh]">
+          <div className="bg-[#122030] border border-white/10 rounded-2xl w-full max-w-md shadow-2xl flex flex-col max-h-[85vh]">
             <div className="flex items-center justify-between px-6 py-5 border-b border-white/5">
               <h2 className="text-lg font-bold">👥 Usuários</h2>
               <button onClick={()=>setShowUsers(false)} className="text-gray-500 hover:text-white text-2xl leading-none transition-colors">×</button>
@@ -359,22 +359,22 @@ export default function CronogramaPage() {
               <div className="flex gap-2">
                 <input type="text" value={newUser.name} onChange={e=>setNewUser(p=>({...p,name:e.target.value}))} required
                   placeholder="Nome"
-                  className="flex-1 bg-black/40 border border-white/10 rounded-xl px-3 py-2.5 text-white placeholder-gray-600 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"/>
+                  className="flex-1 bg-black/40 border border-white/10 rounded-xl px-3 py-2.5 text-white placeholder-gray-600 text-sm focus:outline-none focus:ring-2 focus:ring-[#2AB9B0]"/>
                 <input type="password" value={newUser.password} onChange={e=>setNewUser(p=>({...p,password:e.target.value}))} required
                   placeholder="Senha"
-                  className="flex-1 bg-black/40 border border-white/10 rounded-xl px-3 py-2.5 text-white placeholder-gray-600 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"/>
+                  className="flex-1 bg-black/40 border border-white/10 rounded-xl px-3 py-2.5 text-white placeholder-gray-600 text-sm focus:outline-none focus:ring-2 focus:ring-[#2AB9B0]"/>
               </div>
               <div className="flex gap-2">
                 <div className="flex gap-1 flex-1">
                   {["obra","admin"].map(r=>(
                     <button key={r} type="button" onClick={()=>setNewUser(p=>({...p,role:r}))}
-                      className={`flex-1 py-2 rounded-xl text-xs font-semibold border transition-all ${newUser.role===r?(r==="admin"?"bg-orange-500 border-orange-500 text-white":"bg-white/10 border-white/10 text-white"):"bg-white/5 border-white/5 text-gray-500"}`}>
+                      className={`flex-1 py-2 rounded-xl text-xs font-semibold border transition-all ${newUser.role===r?(r==="admin"?"bg-[#2AB9B0] border-[#2AB9B0] text-white":"bg-white/10 border-white/10 text-white"):"bg-white/5 border-white/5 text-gray-500"}`}>
                       {r==="admin"?"Admin":"Obra"}
                     </button>
                   ))}
                 </div>
                 <button type="submit" disabled={addingUser||!newUser.name||!newUser.password}
-                  className="px-4 py-2 rounded-xl bg-orange-500 hover:bg-orange-400 disabled:opacity-40 text-white text-xs font-bold transition-all">
+                  className="px-4 py-2 rounded-xl bg-[#2AB9B0] hover:bg-[#2AB9B0] disabled:opacity-40 text-white text-xs font-bold transition-all">
                   {addingUser?"...":"Criar"}
                 </button>
               </div>
@@ -394,7 +394,7 @@ export default function CronogramaPage() {
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-semibold text-white truncate">{u.name}</p>
-                        <span className={`text-xs font-medium ${u.role==="admin"?"text-orange-400":"text-gray-500"}`}>
+                        <span className={`text-xs font-medium ${u.role==="admin"?"text-[#2AB9B0]":"text-gray-500"}`}>
                           {u.role==="admin"?"Administrador":"Equipe de obra"}
                         </span>
                       </div>
@@ -426,12 +426,12 @@ function VisitRow({visit,isAdmin,onEdit,onDelete}:{visit:Visit;isAdmin:boolean;o
   const vistoria = visit.type==="vistoria";
   return(
     <div className="flex items-start gap-4 px-6 py-4 group hover:bg-white/2 transition-colors">
-      <div className={`mt-0.5 w-10 h-10 rounded-xl flex items-center justify-center text-lg flex-shrink-0 ${vistoria?"bg-blue-500/10 border border-blue-500/20":"bg-orange-500/10 border border-orange-500/20"}`}>
+      <div className={`mt-0.5 w-10 h-10 rounded-xl flex items-center justify-center text-lg flex-shrink-0 ${vistoria?"bg-[#18ABDA]/10 border border-[#18ABDA]/20":"bg-[#2AB9B0]/10 border border-[#2AB9B0]/20"}`}>
         {vistoria?"📋":"👥"}
       </div>
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 mb-0.5">
-          <span className={`text-xs font-bold px-2 py-0.5 rounded-lg ${vistoria?"bg-blue-500/10 text-blue-400":"bg-orange-500/10 text-orange-400"}`}>
+          <span className={`text-xs font-bold px-2 py-0.5 rounded-lg ${vistoria?"bg-[#18ABDA]/10 text-[#18ABDA]":"bg-[#2AB9B0]/10 text-[#2AB9B0]"}`}>
             {fmtTime(visit.date)}
           </span>
           <span className="text-xs text-gray-600">{vistoria?"Vistoria":"Visita"}</span>
