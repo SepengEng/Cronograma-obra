@@ -4,10 +4,8 @@ import { useState, FormEvent, useEffect } from "react";
 import { useRouter } from "next/navigation";
 
 export default function LoginPage() {
-  const [mode, setMode] = useState<"login" | "register">("login");
   const [name, setName] = useState("");
   const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
   const [erro, setErro] = useState("");
   const [loading, setLoading] = useState(false);
   const router = useRouter();
@@ -18,15 +16,10 @@ export default function LoginPage() {
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
-    if (mode === "register" && password !== confirmPassword) {
-      setErro("As senhas não coincidem.");
-      return;
-    }
     setLoading(true);
     setErro("");
-    const endpoint = mode === "login" ? "/api/auth" : "/api/register";
     try {
-      const r = await fetch(endpoint, {
+      const r = await fetch("/api/auth", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name: name.trim(), password }),
@@ -46,13 +39,11 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen bg-[#0B1929] flex flex-col items-center justify-center px-4">
-      {/* Background glow */}
       <div className="pointer-events-none fixed inset-0 overflow-hidden">
         <div className="absolute -top-40 left-1/2 -translate-x-1/2 w-[600px] h-[600px] bg-[#2AB9B0]/10 rounded-full blur-[120px]" />
       </div>
 
       <div className="relative w-full max-w-md">
-        {/* Logo */}
         <div className="text-center mb-10">
           <div className="inline-flex w-20 h-20 bg-gradient-to-br from-[#2AB9B0] to-[#18ABDA] rounded-3xl items-center justify-center text-4xl mb-5 shadow-lg shadow-[#2AB9B0]/20">
             🏗️
@@ -61,18 +52,7 @@ export default function LoginPage() {
           <p className="text-gray-500 mt-2">Visitas e vistorias agendadas</p>
         </div>
 
-        {/* Card */}
         <div className="bg-white/5 backdrop-blur border border-white/10 rounded-2xl p-8 shadow-2xl">
-          {/* Mode toggle */}
-          <div className="flex bg-black/30 rounded-xl p-1 mb-7 gap-1">
-            {(["login", "register"] as const).map((m) => (
-              <button key={m} onClick={() => { setMode(m); setErro(""); }}
-                className={`flex-1 py-2.5 text-sm font-semibold rounded-lg transition-all ${mode === m ? "bg-[#2AB9B0] text-white shadow-md" : "text-gray-400 hover:text-white"}`}>
-                {m === "login" ? "Entrar" : "Primeiro acesso"}
-              </button>
-            ))}
-          </div>
-
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-300 mb-2">Nome</label>
@@ -86,14 +66,6 @@ export default function LoginPage() {
                 placeholder="••••••••"
                 className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3.5 text-white placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-[#2AB9B0] focus:border-transparent transition-all text-sm" />
             </div>
-            {mode === "register" && (
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">Confirmar senha</label>
-                <input type="password" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} required
-                  placeholder="••••••••"
-                  className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3.5 text-white placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-[#2AB9B0] focus:border-transparent transition-all text-sm" />
-              </div>
-            )}
 
             {erro && (
               <div className="bg-red-500/10 border border-red-500/30 rounded-xl px-4 py-3 text-red-400 text-sm">
@@ -101,16 +73,10 @@ export default function LoginPage() {
               </div>
             )}
 
-            <button type="submit" disabled={loading || !name || !password || (mode === "register" && !confirmPassword)}
+            <button type="submit" disabled={loading || !name || !password}
               className="w-full bg-[#2AB9B0] hover:bg-[#1EA59D] disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold py-4 rounded-xl transition-all text-sm shadow-lg shadow-[#2AB9B0]/20 mt-2">
-              {loading ? "Aguarde..." : mode === "login" ? "Entrar" : "Criar conta de administrador"}
+              {loading ? "Aguarde..." : "Entrar"}
             </button>
-
-            {mode === "register" && (
-              <p className="text-xs text-gray-600 text-center leading-relaxed">
-                Disponível apenas para o primeiro acesso.<br />Novos usuários são criados pelo administrador.
-              </p>
-            )}
           </form>
         </div>
       </div>
