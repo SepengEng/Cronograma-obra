@@ -149,8 +149,7 @@ export default function CronogramaPage() {
       <header className="bg-[#0F1E2E] border-b border-white/5 px-5 py-4">
         <div className="max-w-2xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-3">
-            {/* Logo placeholder — trocar pela imagem enviada */}
-            <div className="w-10 h-10 bg-gradient-to-br from-[#2AB9B0] to-[#18ABDA] rounded-xl flex items-center justify-center text-xl shadow-md shadow-[#2AB9B0]/20 flex-shrink-0">🏗️</div>
+            <img src="/logo.png" alt="SBE" className="h-10 w-auto object-contain flex-shrink-0" />
             <div>
               <p className="font-bold text-white text-base leading-tight">Cronograma de Vistoria</p>
               <p className="text-xs text-gray-500 leading-tight mt-0.5">

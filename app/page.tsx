@@ -45,9 +45,7 @@ export default function LoginPage() {
 
       <div className="relative w-full max-w-md">
         <div className="text-center mb-10">
-          <div className="inline-flex w-20 h-20 bg-gradient-to-br from-[#2AB9B0] to-[#18ABDA] rounded-3xl items-center justify-center text-4xl mb-5 shadow-lg shadow-[#2AB9B0]/20">
-            🏗️
-          </div>
+          <img src="/logo.png" alt="SBE" className="h-20 w-auto object-contain mx-auto mb-5" />
           <h1 className="text-3xl font-bold text-white tracking-tight">Cronograma de Obra</h1>
           <p className="text-gray-500 mt-2">Visitas e vistorias agendadas</p>
         </div>
