@@ -284,7 +284,7 @@ export default function CronogramaPage() {
               ):(
                 <div className="divide-y divide-white/5 overflow-y-auto max-h-[520px]">
                   {selectedVisits.map(v=>(
-                    <VisitCard key={v.id} visit={v} isAdmin={isAdmin} onEdit={openEdit} onDelete={setConfirmDelete} onStatus={setStatus}/>
+                    <VisitCard key={v.id} visit={v} isAdmin={isAdmin} onEdit={openEdit} onDelete={setConfirmDelete} onStatus={setStatus} onUnitIndisponivel={id=>handleUnitUpdate(id,"indisponivel")}/>
                   ))}
                 </div>
               )}
@@ -296,7 +296,8 @@ export default function CronogramaPage() {
         {view==="lista" && (
           <ListaView visits={visits.filter(v=>v.status==="pendente"||v.status==="realizada_pendencias")} loading={loading} isAdmin={isAdmin}
             onEdit={openEdit} onDelete={setConfirmDelete} onNew={openNew} onStatus={setStatus}
-            onSelectDay={(k)=>{setView("calendar");setSelected(k);}}/>
+            onSelectDay={(k)=>{setView("calendar");setSelected(k);}}
+            onUnitIndisponivel={id=>handleUnitUpdate(id,"indisponivel")}/>
         )}
 
         {/* ── HISTÓRICO ── */}
@@ -437,9 +438,10 @@ export default function CronogramaPage() {
 }
 
 /* ─── Visit Card ─── */
-function VisitCard({visit,isAdmin,onEdit,onDelete,onStatus}:{
+function VisitCard({visit,isAdmin,onEdit,onDelete,onStatus,onUnitIndisponivel}:{
   visit:Visit;isAdmin:boolean;
   onEdit:(v:Visit)=>void;onDelete:(id:string)=>void;onStatus:(id:string,s:Status)=>void;
+  onUnitIndisponivel?:(unitId:string)=>void;
 }) {
   const tc = TYPE_COLOR[visit.type]??TYPE_COLOR.visita;
   const sc = STATUS_LABEL[visit.status]??STATUS_LABEL.pendente;
@@ -483,6 +485,12 @@ function VisitCard({visit,isAdmin,onEdit,onDelete,onStatus}:{
             className="flex items-center gap-1.5 text-xs font-semibold text-red-400 bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 px-3 py-1.5 rounded-lg transition-all">
             ❌ Não realizada
           </button>
+          {visit.unitId&&onUnitIndisponivel&&(
+            <button onClick={()=>onUnitIndisponivel(visit.unitId!)}
+              className="flex items-center gap-1.5 text-xs font-semibold text-rose-300 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/20 px-3 py-1.5 rounded-lg transition-all">
+              🚫 Indisponível
+            </button>
+          )}
         </div>
       )}
       {/* Undo button */}
@@ -499,10 +507,11 @@ function VisitCard({visit,isAdmin,onEdit,onDelete,onStatus}:{
 }
 
 /* ─── Lista View ─── */
-function ListaView({visits,loading,isAdmin,onEdit,onDelete,onNew,onStatus,onSelectDay}:{
+function ListaView({visits,loading,isAdmin,onEdit,onDelete,onNew,onStatus,onSelectDay,onUnitIndisponivel}:{
   visits:Visit[];loading:boolean;isAdmin:boolean;
   onEdit:(v:Visit)=>void;onDelete:(id:string)=>void;onNew:()=>void;
   onStatus:(id:string,s:Status)=>void;onSelectDay:(k:string)=>void;
+  onUnitIndisponivel:(unitId:string)=>void;
 }) {
   const sorted = [...visits].sort((a,b)=>+new Date(a.date)-+new Date(b.date));
   const byMonth: Record<string,Visit[]> = {};
@@ -570,6 +579,12 @@ function ListaView({visits,loading,isAdmin,onEdit,onDelete,onNew,onStatus,onSele
                         className="flex items-center gap-1.5 text-xs font-semibold text-red-400 bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 px-3 py-1.5 rounded-lg transition-all">
                         ❌ Não realizada
                       </button>
+                      {v.unitId&&(
+                        <button onClick={()=>onUnitIndisponivel(v.unitId!)}
+                          className="flex items-center gap-1.5 text-xs font-semibold text-rose-300 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/20 px-3 py-1.5 rounded-lg transition-all">
+                          🚫 Indisponível
+                        </button>
+                      )}
                     </div>
                   </div>
                 );
