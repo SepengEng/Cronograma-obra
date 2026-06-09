@@ -8,7 +8,7 @@ import type { Unit, UnitStatus } from "../components/unitTypes";
 type Role = "admin" | "obra";
 type Session = { role: Role; name: string; id: string };
 type AppUser = { id: string; name: string; role: string };
-type Status = "pendente" | "concluida" | "nao_realizada";
+type Status = "pendente" | "concluida" | "nao_realizada" | "realizada_pendencias";
 type Visit = { id: string; date: string; visitor: string; type: string; notes: string | null; status: Status; unitId: string | null; unit?: { number: string } | null };
 
 const MONTHS = ["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
@@ -20,9 +20,10 @@ const TYPE_COLOR: Record<string,{bg:string;text:string;dot:string;border:string}
   vistoria: { bg:"bg-red-500/10",   text:"text-red-400",   dot:"bg-red-400",   border:"border-red-500/30"   },
 };
 const STATUS_LABEL: Record<Status,{label:string;icon:string;cls:string}> = {
-  pendente:       { label:"Pendente",       icon:"⏳", cls:"bg-yellow-500/10 text-yellow-400 border-yellow-500/20" },
-  concluida:      { label:"Concluída",      icon:"✅", cls:"bg-emerald-500/10 text-emerald-400 border-emerald-500/20" },
-  nao_realizada:  { label:"Não realizada",  icon:"❌", cls:"bg-red-500/10 text-red-400 border-red-500/20" },
+  pendente:              { label:"Pendente",            icon:"⏳", cls:"bg-yellow-500/10 text-yellow-400 border-yellow-500/20" },
+  concluida:             { label:"Concluída",           icon:"✅", cls:"bg-emerald-500/10 text-emerald-400 border-emerald-500/20" },
+  nao_realizada:         { label:"Não realizada",       icon:"❌", cls:"bg-red-500/10 text-red-400 border-red-500/20" },
+  realizada_pendencias:  { label:"Com pendências",      icon:"⚠️", cls:"bg-amber-500/10 text-amber-400 border-amber-500/20" },
 };
 
 function toKey(d: Date) {
@@ -469,10 +470,14 @@ function VisitCard({visit,isAdmin,onEdit,onDelete,onStatus}:{
       </div>
       {/* Status buttons — only for pending, for all users */}
       {visit.status==="pendente"&&(
-        <div className="flex gap-2 mt-3 ml-14">
+        <div className="flex flex-wrap gap-2 mt-3 ml-14">
           <button onClick={()=>onStatus(visit.id,"concluida")}
             className="flex items-center gap-1.5 text-xs font-semibold text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 px-3 py-1.5 rounded-lg transition-all">
             ✅ Concluída
+          </button>
+          <button onClick={()=>onStatus(visit.id,"realizada_pendencias")}
+            className="flex items-center gap-1.5 text-xs font-semibold text-amber-400 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/20 px-3 py-1.5 rounded-lg transition-all">
+            ⚠️ Com pendências
           </button>
           <button onClick={()=>onStatus(visit.id,"nao_realizada")}
             className="flex items-center gap-1.5 text-xs font-semibold text-red-400 bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 px-3 py-1.5 rounded-lg transition-all">
