@@ -9,22 +9,16 @@ async function isAdmin(req: NextRequest) {
 }
 
 // Mapeia status da visita → status da unidade
-function visitToUnitStatus(visitStatus: string): string | null {
-  if (visitStatus === "concluida")            return "ja_vistoriado";
+async function resolveUnitStatus(visitStatus: string, unitId: string): Promise<string | null> {
+  if (visitStatus === "concluida")            return "concluida";
   if (visitStatus === "realizada_pendencias") return "pendencia";
   if (visitStatus === "nao_realizada")        return "pendencia";
-  if (visitStatus === "pendente")             return "agendada";
+  if (visitStatus === "pendente") {
+    // Se já estava em revistoria, desfazer mantém revistoria (não volta pra agendada)
+    const unit = await prisma.unit.findUnique({ where: { id: unitId }, select: { status: true } });
+    return unit?.status === "revistoria" ? "revistoria" : "agendada";
+  }
   return null;
-}
-
-// Se a unidade já estava em revistoria, "desfazer" volta pra revistoria (não agendada)
-async function resolveUnitStatus(visitStatus: string, unitId: string): Promise<string | null> {
-  const base = visitToUnitStatus(visitStatus);
-  if (base !== "agendada") return base;
-  // se já tinha sido vistoriada antes, mantém revistoria no desfazer
-  const unit = await prisma.unit.findUnique({ where: { id: unitId }, select: { status: true } });
-  if (unit?.status === "revistoria") return "revistoria";
-  return "agendada";
 }
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -37,10 +31,10 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   const visit = await prisma.visit.update({
     where: { id },
     data: {
-      ...(date     && { date: new Date(date) }),
-      ...(visitor  && { visitor }),
-      ...(type     && { type }),
-      ...(status   && { status }),
+      ...(date    && { date: new Date(date) }),
+      ...(visitor && { visitor }),
+      ...(type    && { type }),
+      ...(status  && { status }),
       notes:  notes  ?? undefined,
       unitId: unitId !== undefined ? (unitId || null) : undefined,
     },
@@ -58,8 +52,6 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       });
     }
   }
-
-  // Se o unitId foi removido (desvinculado), não altera o status da unidade
 
   return NextResponse.json(visit);
 }

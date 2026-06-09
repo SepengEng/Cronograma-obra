@@ -35,13 +35,13 @@ export async function POST(req: NextRequest) {
     include: { unit: { select: { number: true } } },
   });
 
-  // Se vinculou uma unidade, marca como agendada ou revistoria
+  // Se vinculou uma unidade: revistoria quando já tem agendamento ativo ou já foi encerrada
   if (unitId) {
     const unit = await prisma.unit.findUnique({ where: { id: unitId }, select: { status: true } });
-    const alreadyInspected = unit?.status === "ja_vistoriado" || unit?.status === "concluida";
+    const needsRevistoria = ["agendada", "revistoria", "concluida", "pendencia"].includes(unit?.status ?? "");
     await prisma.unit.update({
       where: { id: unitId },
-      data: { status: alreadyInspected ? "revistoria" : "agendada" },
+      data: { status: needsRevistoria ? "revistoria" : "agendada" },
     });
   }
 
