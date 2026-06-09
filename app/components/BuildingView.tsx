@@ -2,6 +2,7 @@
 
 import dynamic from "next/dynamic";
 import { useState, useRef, useEffect } from "react";
+import { createPortal } from "react-dom";
 import type { Unit, UnitStatus } from "./unitTypes";
 import { STATUS_COLOR, STATUS_LABEL, STATUS_EMOJI, ALL_STATUSES } from "./unitTypes";
 
@@ -17,15 +18,17 @@ const Building3D = dynamic(() => import("./Building3D"), {
   ),
 });
 
-/* ── Status picker popover ─────────────────────────────────────── */
+/* ── Status picker popover (portal – avoid overflow clipping) ──── */
 function StatusPopover({
   unit,
+  anchorRect,
   isAdmin,
   saving,
   onSelect,
   onClose,
 }: {
   unit: Unit;
+  anchorRect: DOMRect;
   isAdmin: boolean;
   saving: boolean;
   onSelect: (s: UnitStatus) => void;
@@ -41,10 +44,15 @@ function StatusPopover({
     return () => document.removeEventListener("mousedown", handle);
   }, [onClose]);
 
-  return (
+  // Position below & centred on the button that opened this popover
+  const top  = anchorRect.bottom + 6;
+  const left = anchorRect.left + anchorRect.width / 2;
+
+  return createPortal(
     <div
       ref={ref}
-      className="absolute z-50 top-full left-1/2 -translate-x-1/2 mt-1 bg-[#0D1B2A] border border-white/10 rounded-2xl shadow-2xl p-2 min-w-[168px]"
+      style={{ position: "fixed", top, left, transform: "translateX(-50%)", zIndex: 9999 }}
+      className="bg-[#0D1B2A] border border-white/10 rounded-2xl shadow-2xl p-2 min-w-[168px]"
     >
       <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider px-2 pb-1.5">
         Unidade {unit.number}
@@ -66,7 +74,8 @@ function StatusPopover({
           {unit.status === s && <span className="text-[#2AB9B0] text-[10px]">✓</span>}
         </button>
       ))}
-    </div>
+    </div>,
+    document.body
   );
 }
 
@@ -80,7 +89,8 @@ function GridView({
   isAdmin: boolean;
   onUpdateUnit: (id: string, status: UnitStatus, notes?: string) => Promise<void>;
 }) {
-  const [openId, setOpenId] = useState<string | null>(null);
+  // Store the open unit AND the DOMRect of the button that opened it
+  const [openUnit, setOpenUnit] = useState<{ unit: Unit; rect: DOMRect } | null>(null);
   const [saving, setSaving] = useState(false);
   const [filterStatus, setFilterStatus] = useState<UnitStatus | "all">("all");
 
@@ -99,8 +109,25 @@ function GridView({
     setSaving(false);
   };
 
+  // Keep open unit in sync when units data refreshes after a save
+  const syncedOpenUnit = openUnit
+    ? { ...openUnit, unit: units.find((u) => u.id === openUnit.unit.id) ?? openUnit.unit }
+    : null;
+
   return (
     <div className="flex flex-col gap-4">
+      {/* Status picker portal — rendered at body level, never clipped */}
+      {syncedOpenUnit && isAdmin && (
+        <StatusPopover
+          unit={syncedOpenUnit.unit}
+          anchorRect={syncedOpenUnit.rect}
+          isAdmin={isAdmin}
+          saving={saving}
+          onSelect={(s) => handleSelect(syncedOpenUnit.unit, s)}
+          onClose={() => setOpenUnit(null)}
+        />
+      )}
+
       {/* Filter chips */}
       <div className="flex flex-wrap gap-2 items-center">
         <button
@@ -152,45 +179,37 @@ function GridView({
                   const unit = unitMap.get(`${floor}-${pos}`);
                   if (!unit) return <td key={pos} className="px-2 py-1.5" />;
 
-                  const isOpen = openId === unit.id;
+                  const isOpen = openUnit?.unit.id === unit.id;
                   const dimmed = filterStatus !== "all" && !filteredIds.has(unit.id);
 
                   return (
                     <td key={pos} className="px-1.5 py-1.5 text-center">
-                      <div className="relative inline-block">
-                        <button
-                          onClick={() => isAdmin ? setOpenId(isOpen ? null : unit.id) : undefined}
-                          title={STATUS_LABEL[unit.status as UnitStatus]}
-                          className={`relative flex items-center justify-center rounded-lg text-[11px] font-bold text-white w-14 h-8 transition-all select-none
-                            ${isAdmin ? "cursor-pointer hover:scale-110 hover:z-10 hover:shadow-lg" : "cursor-default"}
-                            ${isOpen ? "ring-2 ring-white/50 scale-110 z-10" : ""}
-                            ${dimmed ? "opacity-20" : ""}
-                          `}
-                          style={{
-                            backgroundColor: STATUS_COLOR[unit.status as UnitStatus] ?? STATUS_COLOR.disponivel,
-                            boxShadow: isOpen
-                              ? `0 0 12px ${STATUS_COLOR[unit.status as UnitStatus]}88`
-                              : undefined,
-                          }}
-                        >
-                          {unit.number}
-                          {saving && isOpen && (
-                            <span className="absolute inset-0 flex items-center justify-center bg-black/40 rounded-lg">
-                              <span className="w-3 h-3 border border-white border-t-transparent rounded-full animate-spin" />
-                            </span>
-                          )}
-                        </button>
-
-                        {isOpen && isAdmin && (
-                          <StatusPopover
-                            unit={unit}
-                            isAdmin={isAdmin}
-                            saving={saving}
-                            onSelect={(s) => handleSelect(unit, s)}
-                            onClose={() => setOpenId(null)}
-                          />
+                      <button
+                        onClick={(e) => {
+                          if (!isAdmin) return;
+                          const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                          setOpenUnit(isOpen ? null : { unit, rect });
+                        }}
+                        title={isAdmin ? `Alterar: ${STATUS_LABEL[unit.status as UnitStatus]}` : STATUS_LABEL[unit.status as UnitStatus]}
+                        className={`relative flex items-center justify-center rounded-lg text-[11px] font-bold text-white w-14 h-8 transition-all select-none
+                          ${isAdmin ? "cursor-pointer hover:scale-110 hover:shadow-lg" : "cursor-default"}
+                          ${isOpen ? "ring-2 ring-white/50 scale-110" : ""}
+                          ${dimmed ? "opacity-20" : ""}
+                        `}
+                        style={{
+                          backgroundColor: STATUS_COLOR[unit.status as UnitStatus] ?? STATUS_COLOR.disponivel,
+                          boxShadow: isOpen
+                            ? `0 0 12px ${STATUS_COLOR[unit.status as UnitStatus]}88`
+                            : undefined,
+                        }}
+                      >
+                        {unit.number}
+                        {saving && isOpen && (
+                          <span className="absolute inset-0 flex items-center justify-center bg-black/40 rounded-lg">
+                            <span className="w-3 h-3 border border-white border-t-transparent rounded-full animate-spin" />
+                          </span>
                         )}
-                      </div>
+                      </button>
                     </td>
                   );
                 })}
