@@ -35,11 +35,13 @@ export async function POST(req: NextRequest) {
     include: { unit: { select: { number: true } } },
   });
 
-  // Se vinculou uma unidade, marcar como agendada
+  // Se vinculou uma unidade, marca como agendada ou revistoria
   if (unitId) {
+    const unit = await prisma.unit.findUnique({ where: { id: unitId }, select: { status: true } });
+    const alreadyInspected = unit?.status === "ja_vistoriado" || unit?.status === "concluida";
     await prisma.unit.update({
       where: { id: unitId },
-      data: { status: "agendada" },
+      data: { status: alreadyInspected ? "revistoria" : "agendada" },
     });
   }
 

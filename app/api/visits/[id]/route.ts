@@ -10,11 +10,21 @@ async function isAdmin(req: NextRequest) {
 
 // Mapeia status da visita → status da unidade
 function visitToUnitStatus(visitStatus: string): string | null {
-  if (visitStatus === "concluida")            return "ja_vistoriado"; // vistoria feita → azul
+  if (visitStatus === "concluida")            return "ja_vistoriado";
   if (visitStatus === "realizada_pendencias") return "pendencia";
   if (visitStatus === "nao_realizada")        return "pendencia";
   if (visitStatus === "pendente")             return "agendada";
   return null;
+}
+
+// Se a unidade já estava em revistoria, "desfazer" volta pra revistoria (não agendada)
+async function resolveUnitStatus(visitStatus: string, unitId: string): Promise<string | null> {
+  const base = visitToUnitStatus(visitStatus);
+  if (base !== "agendada") return base;
+  // se já tinha sido vistoriada antes, mantém revistoria no desfazer
+  const unit = await prisma.unit.findUnique({ where: { id: unitId }, select: { status: true } });
+  if (unit?.status === "revistoria") return "revistoria";
+  return "agendada";
 }
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -40,7 +50,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   // Sincroniza status da unidade vinculada
   const linkedUnitId = unitId !== undefined ? (unitId || null) : visit.unitId;
   if (linkedUnitId && status) {
-    const unitStatus = visitToUnitStatus(status);
+    const unitStatus = await resolveUnitStatus(status, linkedUnitId);
     if (unitStatus) {
       await prisma.unit.update({
         where: { id: linkedUnitId },
