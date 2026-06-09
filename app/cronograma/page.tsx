@@ -2,6 +2,8 @@
 
 import { useEffect, useState, FormEvent } from "react";
 import { useRouter } from "next/navigation";
+import BuildingView from "../components/BuildingView";
+import type { Unit, UnitStatus } from "../components/unitTypes";
 
 type Role = "admin" | "obra";
 type Session = { role: Role; name: string; id: string };
@@ -44,7 +46,8 @@ export default function CronogramaPage() {
   const [session, setSession] = useState<Session|null>(null);
   const [visits, setVisits] = useState<Visit[]>([]);
   const [loading, setLoading] = useState(true);
-  const [view, setView] = useState<"calendar"|"lista"|"historico">("calendar");
+  const [view, setView] = useState<"calendar"|"lista"|"historico"|"predio">("calendar");
+  const [units, setUnits] = useState<Unit[]>([]);
   const [month, setMonth] = useState(() => { const d=new Date(); return new Date(d.getFullYear(),d.getMonth(),1); });
   const [selected, setSelected] = useState(() => toKey(new Date()));
   const [showForm, setShowForm] = useState(false);
@@ -64,6 +67,7 @@ export default function CronogramaPage() {
     const s: Session = JSON.parse(raw);
     setSession(s);
     fetch("/api/visits").then(r=>r.json()).then(d=>setVisits(Array.isArray(d)?d:[])).catch(()=>{}).finally(()=>setLoading(false));
+    fetch("/api/units").then(r=>r.json()).then(d=>setUnits(Array.isArray(d)?d:[])).catch(()=>{});
   }, [router]);
 
   const byDate: Record<string,Visit[]> = {};
@@ -142,12 +146,20 @@ export default function CronogramaPage() {
     if (r.ok) setUsers(p=>p.filter(u=>u.id!==uid));
   }
 
+  async function handleUnitUpdate(id:string, status:UnitStatus, notes?:string) {
+    if (!session) return;
+    const body: Record<string,unknown> = { status };
+    if (notes !== undefined) body.notes = notes;
+    const r=await fetch(`/api/units/${id}`,{method:"PATCH",headers:{"Content-Type":"application/json","x-user-id":session.id},body:JSON.stringify(body)});
+    if (r.ok) { const updated=await r.json(); setUnits(p=>p.map(u=>u.id===updated.id?updated:u)); }
+  }
+
   return (
     <div className="min-h-screen bg-[#0B1929] text-white flex flex-col">
 
       {/* Header */}
       <header className="bg-[#0F1E2E] border-b border-white/5 px-5 py-4">
-        <div className="max-w-2xl mx-auto flex items-center justify-between">
+        <div className="max-w-7xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-3">
             <img src="/logo.png" alt="SBE" className="h-10 w-auto object-contain flex-shrink-0" />
             <div>
@@ -181,10 +193,10 @@ export default function CronogramaPage() {
 
       {/* Tabs */}
       <div className="bg-[#0F1E2E] border-b border-white/5 px-5">
-        <div className="max-w-2xl mx-auto flex">
-          {([["calendar","📅 Calendário"],["lista","📋 Lista"],["historico","📜 Histórico"]] as const).map(([v,label])=>(
+        <div className="max-w-7xl mx-auto flex overflow-x-auto">
+          {([["calendar","📅 Calendário"],["lista","📋 Lista"],["historico","📜 Histórico"],["predio","🏢 Prédio"]] as const).map(([v,label])=>(
             <button key={v} onClick={()=>setView(v)}
-              className={`relative px-4 py-3.5 text-sm font-semibold transition-all ${view===v?"text-[#2AB9B0]":"text-gray-500 hover:text-gray-300"}`}>
+              className={`relative px-4 py-3.5 text-sm font-semibold transition-all whitespace-nowrap ${view===v?"text-[#2AB9B0]":"text-gray-500 hover:text-gray-300"}`}>
               {label}
               {view===v&&<span className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#2AB9B0] rounded-full"/>}
             </button>
@@ -192,7 +204,7 @@ export default function CronogramaPage() {
         </div>
       </div>
 
-      <div className="flex-1 max-w-2xl mx-auto w-full px-4 sm:px-6 py-6 flex flex-col gap-5">
+      <div className={`flex-1 ${view==="predio"?"max-w-7xl":"max-w-2xl"} mx-auto w-full px-4 sm:px-6 py-6 flex flex-col gap-5`}>
 
         {/* ── CALENDAR ── */}
         {view==="calendar" && (<>
@@ -278,6 +290,11 @@ export default function CronogramaPage() {
         {view==="historico" && (
           <HistoricoView visits={visits.filter(v=>v.status!=="pendente")} loading={loading} isAdmin={isAdmin}
             onEdit={openEdit} onDelete={setConfirmDelete} onStatus={setStatus}/>
+        )}
+
+        {/* ── PRÉDIO 3D ── */}
+        {view==="predio" && (
+          <BuildingView units={units} isAdmin={isAdmin} onUpdateUnit={handleUnitUpdate}/>
         )}
       </div>
 

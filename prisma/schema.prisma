@@ -22,6 +22,20 @@ model Visit {
   type      String   // "visita" | "vistoria"
   notes     String?
   status    String   @default("pendente") // "pendente" | "concluida" | "nao_realizada"
+  unitId    String?
+  unit      Unit?    @relation(fields: [unitId], references: [id])
   createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Unit {
+  id        String   @id @default(cuid())
+  number    String   @unique
+  floor     Int
+  position  Int
+  tower     String   @default("Torre Única")
+  status    String   @default("sem_vistoria") // "sem_vistoria" | "agendada" | "concluida" | "pendencia" | "indisponivel"
+  notes     String?
+  visits    Visit[]
   updatedAt DateTime @updatedAt
 }
