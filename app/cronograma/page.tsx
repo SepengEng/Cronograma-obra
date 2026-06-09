@@ -9,7 +9,7 @@ type Role = "admin" | "obra";
 type Session = { role: Role; name: string; id: string };
 type AppUser = { id: string; name: string; role: string };
 type Status = "pendente" | "concluida" | "nao_realizada";
-type Visit = { id: string; date: string; visitor: string; type: string; notes: string | null; status: Status };
+type Visit = { id: string; date: string; visitor: string; type: string; notes: string | null; status: Status; unitId: string | null; unit?: { number: string } | null };
 
 const MONTHS = ["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
 const DAYS_FULL = ["Dom","Seg","Ter","Qua","Qui","Sex","Sáb"];
@@ -54,7 +54,7 @@ export default function CronogramaPage() {
   const [editing, setEditing] = useState<Visit|null>(null);
   const [saving, setSaving] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState<string|null>(null);
-  const [form, setForm] = useState({date:"",visitor:"",type:"vistoria",notes:""});
+  const [form, setForm] = useState({date:"",visitor:"",type:"vistoria",notes:"",unitId:""});
   const [showUsers, setShowUsers] = useState(false);
   const [users, setUsers] = useState<AppUser[]>([]);
   const [newUser, setNewUser] = useState({name:"",password:"",role:"obra"});
@@ -87,26 +87,30 @@ export default function CronogramaPage() {
   }
   function openNew(dk?:string) {
     setEditing(null);
-    setForm({date:(dk||selected)+"T09:00",visitor:"",type:"vistoria",notes:""});
+    setForm({date:(dk||selected)+"T09:00",visitor:"",type:"vistoria",notes:"",unitId:""});
     setShowForm(true);
   }
   function openEdit(v:Visit) {
     setEditing(v);
-    setForm({date:toLocalInput(v.date),visitor:v.visitor,type:v.type,notes:v.notes??""});
+    setForm({date:toLocalInput(v.date),visitor:v.visitor,type:v.type,notes:v.notes??"",unitId:v.unitId??""});
     setShowForm(true);
   }
 
   async function handleSave(e:FormEvent) {
     e.preventDefault(); if (!session) return; setSaving(true);
-    const body={date:new Date(form.date).toISOString(),visitor:form.visitor,type:form.type,notes:form.notes||null};
+    const body={date:new Date(form.date).toISOString(),visitor:form.visitor,type:form.type,notes:form.notes||null,unitId:form.unitId||null};
     if (editing) {
       const r=await fetch(`/api/visits/${editing.id}`,{method:"PATCH",headers:{"Content-Type":"application/json","x-user-id":session.id},body:JSON.stringify(body)});
-      if (r.ok) { const u=await r.json(); setVisits(p=>p.map(v=>v.id===u.id?u:v)); }
+      if (r.ok) { const u=await r.json(); setVisits(p=>p.map(v=>v.id===u.id?u:v)); if(u.unitId) refreshUnits(); }
     } else {
       const r=await fetch("/api/visits",{method:"POST",headers:{"Content-Type":"application/json","x-user-id":session.id},body:JSON.stringify(body)});
-      if (r.ok) { const c=await r.json(); setVisits(p=>[...p,c]); }
+      if (r.ok) { const c=await r.json(); setVisits(p=>[...p,c]); if(c.unitId) refreshUnits(); }
     }
     setSaving(false); setShowForm(false);
+  }
+
+  function refreshUnits() {
+    fetch("/api/units").then(r=>r.json()).then(d=>setUnits(Array.isArray(d)?d:[])).catch(()=>{});
   }
 
   async function handleDelete(id:string) {
@@ -118,7 +122,7 @@ export default function CronogramaPage() {
   async function setStatus(id:string, status:Status) {
     if (!session) return;
     const r=await fetch(`/api/visits/${id}`,{method:"PATCH",headers:{"Content-Type":"application/json","x-user-id":session.id},body:JSON.stringify({status})});
-    if (r.ok) { const u=await r.json(); setVisits(p=>p.map(v=>v.id===u.id?u:v)); }
+    if (r.ok) { const u=await r.json(); setVisits(p=>p.map(v=>v.id===u.id?u:v)); if(u.unitId) refreshUnits(); }
   }
 
   async function loadUsers() {
@@ -328,7 +332,18 @@ export default function CronogramaPage() {
                 className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-[#2AB9B0] text-sm"/>
               <input type="datetime-local" value={form.date} onChange={e=>setForm(f=>({...f,date:e.target.value}))} required
                 className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-[#2AB9B0] text-sm"/>
-              <textarea value={form.notes} onChange={e=>setForm(f=>({...f,notes:e.target.value}))} rows={3}
+              <select value={form.unitId} onChange={e=>setForm(f=>({...f,unitId:e.target.value}))}
+                className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-[#2AB9B0] text-sm">
+                <option value="">— Unidade (opcional) —</option>
+                {Array.from({length:16},(_,f)=>f+1).map(floor=>(
+                  <optgroup key={floor} label={`${floor}º Andar`}>
+                    {units.filter(u=>u.floor===floor).map(u=>(
+                      <option key={u.id} value={u.id}>{u.number}</option>
+                    ))}
+                  </optgroup>
+                ))}
+              </select>
+              <textarea value={form.notes} onChange={e=>setForm(f=>({...f,notes:e.target.value}))} rows={2}
                 placeholder="Observações (opcional)"
                 className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-[#2AB9B0] text-sm resize-none"/>
               <div className="flex gap-3 pt-2">
@@ -439,7 +454,10 @@ function VisitCard({visit,isAdmin,onEdit,onDelete,onStatus}:{
             <span className="text-xs text-gray-600">{visit.type==="vistoria"?"Vistoria":"Visita"}</span>
             <span className={`text-xs font-semibold px-2 py-0.5 rounded-lg border ${sc.cls}`}>{sc.icon} {sc.label}</span>
           </div>
-          <p className="text-base font-semibold text-white">{visit.visitor}</p>
+          <div className="flex items-center gap-2 flex-wrap">
+            <p className="text-base font-semibold text-white">{visit.visitor}</p>
+            {visit.unit?.number&&<span className="text-xs font-bold px-2 py-0.5 rounded-lg bg-white/5 border border-white/10 text-gray-400">🏢 {visit.unit.number}</span>}
+          </div>
           {visit.notes&&<p className="text-sm text-gray-500 mt-1 leading-relaxed">{visit.notes}</p>}
         </div>
         {isAdmin&&(
