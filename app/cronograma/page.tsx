@@ -294,7 +294,7 @@ export default function CronogramaPage() {
 
         {/* ── LISTA ── */}
         {view==="lista" && (
-          <ListaView visits={visits.filter(v=>v.status==="pendente")} loading={loading} isAdmin={isAdmin}
+          <ListaView visits={visits.filter(v=>v.status==="pendente"||v.status==="realizada_pendencias")} loading={loading} isAdmin={isAdmin}
             onEdit={openEdit} onDelete={setConfirmDelete} onNew={openNew} onStatus={setStatus}
             onSelectDay={(k)=>{setView("calendar");setSelected(k);}}/>
         )}
