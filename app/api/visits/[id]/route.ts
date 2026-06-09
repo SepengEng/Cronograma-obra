@@ -10,7 +10,7 @@ async function isAdmin(req: NextRequest) {
 
 // Mapeia status da visita → status da unidade
 function visitToUnitStatus(visitStatus: string): string | null {
-  if (visitStatus === "concluida")            return "concluida";
+  if (visitStatus === "concluida")            return "ja_vistoriado"; // vistoria feita → azul
   if (visitStatus === "realizada_pendencias") return "pendencia";
   if (visitStatus === "nao_realizada")        return "pendencia";
   if (visitStatus === "pendente")             return "agendada";

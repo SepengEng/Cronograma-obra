@@ -45,7 +45,7 @@ function UnitMesh({
   const y = (unit.floor - 1) * STEP_Y;
   const z = isSelected ? 0.18 : 0;
   const depth = D + (isSelected ? 0.12 : 0);
-  const color = hexColor(STATUS_COLOR[unit.status as UnitStatus] ?? STATUS_COLOR.sem_vistoria);
+  const color = hexColor(STATUS_COLOR[unit.status as UnitStatus] ?? STATUS_COLOR.disponivel);
 
   // Font size: 4-digit numbers need smaller text
   const fontSize = unit.number.length <= 3 ? 0.145 : 0.115;
