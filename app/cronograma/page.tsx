@@ -253,9 +253,8 @@ export default function CronogramaPage() {
                   );
                 })}
               </div>
-              <div className="flex items-center gap-6 px-6 pb-5 border-t border-white/5 pt-4">
-                <div className="flex items-center gap-2"><span className="w-2.5 h-2.5 rounded-full bg-[#18ABDA]"/><span className="text-xs text-gray-500">Visita</span></div>
-                <div className="flex items-center gap-2"><span className="w-2.5 h-2.5 rounded-full bg-red-400"/><span className="text-xs text-gray-500">Vistoria</span></div>
+              <div className="flex items-center gap-4 px-6 pb-5 border-t border-white/5 pt-4">
+                <div className="flex items-center gap-2"><span className="w-2.5 h-2.5 rounded-full bg-red-400"/><span className="text-xs text-gray-500">Vistoria agendada</span></div>
               </div>
             </div>
 
@@ -321,14 +320,6 @@ export default function CronogramaPage() {
               <button onClick={()=>setShowForm(false)} className="text-gray-500 hover:text-white text-2xl leading-none">×</button>
             </div>
             <form onSubmit={handleSave} className="space-y-4">
-              <div className="flex gap-2">
-                {["vistoria","visita"].map(t=>(
-                  <button key={t} type="button" onClick={()=>setForm(f=>({...f,type:t}))}
-                    className={`flex-1 py-3 rounded-xl text-sm font-semibold border transition-all ${form.type===t?(t==="vistoria"?"bg-red-500/20 border-red-500 text-red-300":"bg-[#18ABDA]/20 border-[#18ABDA] text-[#18ABDA]"):"bg-white/5 border-white/10 text-gray-400 hover:border-white/20"}`}>
-                    {t==="vistoria"?"🔴 Vistoria":"🔵 Visita"}
-                  </button>
-                ))}
-              </div>
               <input type="text" value={form.visitor} onChange={e=>setForm(f=>({...f,visitor:e.target.value}))} required
                 placeholder="Visitante / Empresa"
                 className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-[#2AB9B0] text-sm"/>
