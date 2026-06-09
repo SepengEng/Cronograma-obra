@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import type { Unit, UnitStatus } from "./unitTypes";
 import { STATUS_COLOR, STATUS_LABEL, STATUS_EMOJI, ALL_STATUSES } from "./unitTypes";
 
@@ -17,6 +17,199 @@ const Building3D = dynamic(() => import("./Building3D"), {
   ),
 });
 
+/* ── Status picker popover ─────────────────────────────────────── */
+function StatusPopover({
+  unit,
+  isAdmin,
+  saving,
+  onSelect,
+  onClose,
+}: {
+  unit: Unit;
+  isAdmin: boolean;
+  saving: boolean;
+  onSelect: (s: UnitStatus) => void;
+  onClose: () => void;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handle(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) onClose();
+    }
+    document.addEventListener("mousedown", handle);
+    return () => document.removeEventListener("mousedown", handle);
+  }, [onClose]);
+
+  return (
+    <div
+      ref={ref}
+      className="absolute z-50 top-full left-1/2 -translate-x-1/2 mt-1 bg-[#0D1B2A] border border-white/10 rounded-2xl shadow-2xl p-2 min-w-[168px]"
+    >
+      <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider px-2 pb-1.5">
+        Unidade {unit.number}
+      </p>
+      {ALL_STATUSES.map((s) => (
+        <button
+          key={s}
+          disabled={!isAdmin || saving}
+          onClick={() => { onSelect(s); onClose(); }}
+          className={`flex items-center gap-2 w-full px-3 py-1.5 rounded-xl text-xs font-semibold transition-all text-left
+            ${unit.status === s
+              ? "bg-white/10 text-white"
+              : "text-gray-400 hover:bg-white/5 hover:text-white"}
+            ${saving ? "opacity-50 cursor-wait" : ""}
+          `}
+        >
+          <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: STATUS_COLOR[s] }} />
+          <span className="flex-1">{STATUS_LABEL[s]}</span>
+          {unit.status === s && <span className="text-[#2AB9B0] text-[10px]">✓</span>}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/* ── 2-D grid view ─────────────────────────────────────────────── */
+function GridView({
+  units,
+  isAdmin,
+  onUpdateUnit,
+}: {
+  units: Unit[];
+  isAdmin: boolean;
+  onUpdateUnit: (id: string, status: UnitStatus, notes?: string) => Promise<void>;
+}) {
+  const [openId, setOpenId] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [filterStatus, setFilterStatus] = useState<UnitStatus | "all">("all");
+
+  const floors = Array.from(new Set(units.map((u) => u.floor))).sort((a, b) => b - a); // 16→1
+  const positions = Array.from(new Set(units.map((u) => u.position))).sort((a, b) => a - b);
+
+  const unitMap = new Map(units.map((u) => [`${u.floor}-${u.position}`, u]));
+
+  const filtered = filterStatus === "all" ? units : units.filter((u) => u.status === filterStatus);
+  const filteredIds = new Set(filtered.map((u) => u.id));
+
+  const handleSelect = async (unit: Unit, s: UnitStatus) => {
+    if (!isAdmin) return;
+    setSaving(true);
+    await onUpdateUnit(unit.id, s);
+    setSaving(false);
+  };
+
+  return (
+    <div className="flex flex-col gap-4">
+      {/* Filter chips */}
+      <div className="flex flex-wrap gap-2 items-center">
+        <button
+          onClick={() => setFilterStatus("all")}
+          className={`px-3 py-1 rounded-full text-xs font-semibold border transition-all
+            ${filterStatus === "all" ? "bg-white/10 border-white/20 text-white" : "border-white/10 text-gray-500 hover:text-gray-300"}`}
+        >
+          Todas ({units.length})
+        </button>
+        {ALL_STATUSES.map((s) => {
+          const count = units.filter((u) => u.status === s).length;
+          return (
+            <button
+              key={s}
+              onClick={() => setFilterStatus(s === filterStatus ? "all" : s)}
+              className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold border transition-all
+                ${filterStatus === s ? "text-white border-white/20" : "border-white/10 text-gray-500 hover:text-gray-300"}`}
+              style={filterStatus === s ? { backgroundColor: STATUS_COLOR[s] + "33", borderColor: STATUS_COLOR[s] + "66" } : {}}
+            >
+              <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: STATUS_COLOR[s] }} />
+              {STATUS_LABEL[s]} ({count})
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Grid */}
+      <div className="overflow-x-auto rounded-2xl border border-white/5 bg-[#0A1521]">
+        <table className="w-full border-collapse">
+          <thead>
+            <tr>
+              <th className="w-10 px-3 py-2 text-[10px] font-bold text-gray-600 uppercase tracking-wider text-right border-b border-white/5">
+                Andar
+              </th>
+              {positions.map((p) => (
+                <th key={p} className="px-2 py-2 text-[10px] font-bold text-gray-600 uppercase tracking-wider text-center border-b border-white/5">
+                  P{p}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {floors.map((floor) => (
+              <tr key={floor} className="border-b border-white/[0.04] last:border-0">
+                <td className="px-3 py-1.5 text-xs font-bold text-[#2AB9B0] text-right w-10 whitespace-nowrap">
+                  {floor}º
+                </td>
+                {positions.map((pos) => {
+                  const unit = unitMap.get(`${floor}-${pos}`);
+                  if (!unit) return <td key={pos} className="px-2 py-1.5" />;
+
+                  const isOpen = openId === unit.id;
+                  const dimmed = filterStatus !== "all" && !filteredIds.has(unit.id);
+
+                  return (
+                    <td key={pos} className="px-1.5 py-1.5 text-center">
+                      <div className="relative inline-block">
+                        <button
+                          onClick={() => isAdmin ? setOpenId(isOpen ? null : unit.id) : undefined}
+                          title={STATUS_LABEL[unit.status as UnitStatus]}
+                          className={`relative flex items-center justify-center rounded-lg text-[11px] font-bold text-white w-14 h-8 transition-all select-none
+                            ${isAdmin ? "cursor-pointer hover:scale-110 hover:z-10 hover:shadow-lg" : "cursor-default"}
+                            ${isOpen ? "ring-2 ring-white/50 scale-110 z-10" : ""}
+                            ${dimmed ? "opacity-20" : ""}
+                          `}
+                          style={{
+                            backgroundColor: STATUS_COLOR[unit.status as UnitStatus] ?? STATUS_COLOR.disponivel,
+                            boxShadow: isOpen
+                              ? `0 0 12px ${STATUS_COLOR[unit.status as UnitStatus]}88`
+                              : undefined,
+                          }}
+                        >
+                          {unit.number}
+                          {saving && isOpen && (
+                            <span className="absolute inset-0 flex items-center justify-center bg-black/40 rounded-lg">
+                              <span className="w-3 h-3 border border-white border-t-transparent rounded-full animate-spin" />
+                            </span>
+                          )}
+                        </button>
+
+                        {isOpen && isAdmin && (
+                          <StatusPopover
+                            unit={unit}
+                            isAdmin={isAdmin}
+                            saving={saving}
+                            onSelect={(s) => handleSelect(unit, s)}
+                            onClose={() => setOpenId(null)}
+                          />
+                        )}
+                      </div>
+                    </td>
+                  );
+                })}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {isAdmin && (
+        <p className="text-[11px] text-gray-600 text-center">
+          Clique em qualquer unidade para alterar o status
+        </p>
+      )}
+    </div>
+  );
+}
+
+/* ── Main BuildingView ─────────────────────────────────────────── */
 export default function BuildingView({
   units,
   isAdmin,
@@ -26,6 +219,7 @@ export default function BuildingView({
   isAdmin: boolean;
   onUpdateUnit: (id: string, status: UnitStatus, notes?: string) => Promise<void>;
 }) {
+  const [viewMode, setViewMode] = useState<"3d" | "grid">("3d");
   const [selectedUnit, setSelectedUnit] = useState<Unit | null>(null);
   const [saving, setSaving] = useState(false);
   const [editNotes, setEditNotes] = useState("");
@@ -65,148 +259,184 @@ export default function BuildingView({
 
   return (
     <div className="flex flex-col gap-4">
-      {/* Stats bar */}
-      <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
-        {ALL_STATUSES.map((s) => (
-          <div
-            key={s}
-            className="flex items-center gap-2.5 bg-[#0F1E2E] border border-white/5 rounded-xl px-3.5 py-2.5"
-          >
+      {/* Stats bar + view toggle */}
+      <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+        <div className="grid grid-cols-3 sm:grid-cols-6 gap-2 flex-1">
+          {ALL_STATUSES.map((s) => (
             <div
-              className="w-3 h-3 rounded-sm flex-shrink-0"
-              style={{ backgroundColor: STATUS_COLOR[s] }}
-            />
-            <div className="min-w-0">
-              <p className="text-xs text-gray-500 leading-tight truncate">{STATUS_LABEL[s]}</p>
-              <p className="text-base font-bold text-white leading-tight">{counts[s]}</p>
+              key={s}
+              className="flex items-center gap-2 bg-[#0F1E2E] border border-white/5 rounded-xl px-3 py-2"
+            >
+              <div
+                className="w-2.5 h-2.5 rounded-sm flex-shrink-0"
+                style={{ backgroundColor: STATUS_COLOR[s] }}
+              />
+              <div className="min-w-0">
+                <p className="text-[10px] text-gray-500 leading-tight truncate">{STATUS_LABEL[s]}</p>
+                <p className="text-sm font-bold text-white leading-tight">{counts[s]}</p>
+              </div>
             </div>
-          </div>
-        ))}
-      </div>
-
-      {/* Canvas + side panel */}
-      <div className="flex gap-3 items-stretch">
-        {/* 3D Canvas */}
-        <div
-          className="flex-1 rounded-2xl overflow-hidden border border-white/5 shadow-xl"
-          style={{ height: 520 }}
-        >
-          <Building3D
-            units={units}
-            selectedId={syncedSelected?.id ?? null}
-            onSelect={handleSelect}
-          />
+          ))}
         </div>
 
-        {/* Side panel */}
-        <div className="w-56 flex-shrink-0 flex flex-col gap-3">
-          {syncedSelected ? (
-            <>
-              {/* Unit header */}
-              <div className="bg-[#0F1E2E] border border-white/5 rounded-2xl p-4">
-                <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">
-                  Unidade
-                </p>
-                <p className="text-3xl font-black text-white">{syncedSelected.number}</p>
-                <p className="text-xs text-gray-500 mt-0.5">{syncedSelected.tower}</p>
-                <p className="text-xs text-gray-500">
-                  {syncedSelected.floor}º andar · Posição {syncedSelected.position}
-                </p>
-              </div>
+        {/* Toggle */}
+        <div className="flex gap-1 bg-[#0F1E2E] border border-white/5 rounded-xl p-1 self-start sm:self-auto flex-shrink-0">
+          <button
+            onClick={() => setViewMode("3d")}
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+              viewMode === "3d"
+                ? "bg-[#2AB9B0] text-white shadow"
+                : "text-gray-500 hover:text-gray-300"
+            }`}
+          >
+            🏢 3D
+          </button>
+          <button
+            onClick={() => setViewMode("grid")}
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+              viewMode === "grid"
+                ? "bg-[#2AB9B0] text-white shadow"
+                : "text-gray-500 hover:text-gray-300"
+            }`}
+          >
+            ⊞ Grade
+          </button>
+        </div>
+      </div>
 
-              {/* Status selector */}
-              <div className="bg-[#0F1E2E] border border-white/5 rounded-2xl p-4 flex-1">
-                <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3">
-                  Status
-                </p>
-                <div className="flex flex-col gap-1.5">
-                  {ALL_STATUSES.map((s) => (
-                    <button
-                      key={s}
-                      disabled={!isAdmin || saving}
-                      onClick={() => handleStatusChange(s)}
-                      className={`flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold border transition-all text-left
-                        ${
-                          syncedSelected.status === s
-                            ? "border-white/20 bg-white/10 text-white"
-                            : isAdmin
-                            ? "border-white/5 text-gray-400 hover:border-white/15 hover:bg-white/5 hover:text-white"
-                            : "border-white/5 text-gray-600 cursor-default"
-                        }
-                        ${saving ? "opacity-50 cursor-wait" : ""}`}
-                    >
-                      <div
-                        className="w-2.5 h-2.5 rounded-full flex-shrink-0"
-                        style={{ backgroundColor: STATUS_COLOR[s] }}
-                      />
-                      <span className="flex-1">{STATUS_LABEL[s]}</span>
-                      {syncedSelected.status === s && (
-                        <span className="text-[#2AB9B0]">✓</span>
-                      )}
-                    </button>
-                  ))}
+      {/* ── Grid view ── */}
+      {viewMode === "grid" && (
+        <GridView units={units} isAdmin={isAdmin} onUpdateUnit={onUpdateUnit} />
+      )}
+
+      {/* ── 3D view ── */}
+      {viewMode === "3d" && (
+        <div className="flex gap-3 items-stretch">
+          {/* 3D Canvas */}
+          <div
+            className="flex-1 rounded-2xl overflow-hidden border border-white/5 shadow-xl"
+            style={{ height: 520 }}
+          >
+            <Building3D
+              units={units}
+              selectedId={syncedSelected?.id ?? null}
+              onSelect={handleSelect}
+            />
+          </div>
+
+          {/* Side panel */}
+          <div className="w-56 flex-shrink-0 flex flex-col gap-3">
+            {syncedSelected ? (
+              <>
+                {/* Unit header */}
+                <div className="bg-[#0F1E2E] border border-white/5 rounded-2xl p-4">
+                  <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">
+                    Unidade
+                  </p>
+                  <p className="text-3xl font-black text-white">{syncedSelected.number}</p>
+                  <p className="text-xs text-gray-500 mt-0.5">{syncedSelected.tower}</p>
+                  <p className="text-xs text-gray-500">
+                    {syncedSelected.floor}º andar · Posição {syncedSelected.position}
+                  </p>
                 </div>
 
-                {/* Notes toggle */}
-                {isAdmin && (
-                  <div className="mt-3 pt-3 border-t border-white/5">
-                    {showNotes ? (
-                      <div className="flex flex-col gap-2">
-                        <textarea
-                          value={editNotes}
-                          onChange={(e) => setEditNotes(e.target.value)}
-                          rows={3}
-                          placeholder="Observações…"
-                          className="w-full bg-black/40 border border-white/10 rounded-xl px-3 py-2 text-white placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-[#2AB9B0] text-xs resize-none"
-                        />
-                        <div className="flex gap-1.5">
-                          <button
-                            onClick={() => setShowNotes(false)}
-                            className="flex-1 py-1.5 rounded-lg border border-white/10 text-gray-400 text-xs"
-                          >
-                            Cancelar
-                          </button>
-                          <button
-                            onClick={handleSaveNotes}
-                            disabled={saving}
-                            className="flex-1 py-1.5 rounded-lg bg-[#2AB9B0] text-white text-xs font-bold disabled:opacity-50"
-                          >
-                            Salvar
-                          </button>
-                        </div>
-                      </div>
-                    ) : (
+                {/* Status selector */}
+                <div className="bg-[#0F1E2E] border border-white/5 rounded-2xl p-4 flex-1">
+                  <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3">
+                    Status
+                  </p>
+                  <div className="flex flex-col gap-1.5">
+                    {ALL_STATUSES.map((s) => (
                       <button
-                        onClick={() => setShowNotes(true)}
-                        className="w-full text-xs text-gray-500 hover:text-gray-300 text-left transition-colors"
+                        key={s}
+                        disabled={!isAdmin || saving}
+                        onClick={() => handleStatusChange(s)}
+                        className={`flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold border transition-all text-left
+                          ${
+                            syncedSelected.status === s
+                              ? "border-white/20 bg-white/10 text-white"
+                              : isAdmin
+                              ? "border-white/5 text-gray-400 hover:border-white/15 hover:bg-white/5 hover:text-white"
+                              : "border-white/5 text-gray-600 cursor-default"
+                          }
+                          ${saving ? "opacity-50 cursor-wait" : ""}`}
                       >
-                        {syncedSelected.notes
-                          ? `📝 ${syncedSelected.notes.slice(0, 40)}${syncedSelected.notes.length > 40 ? "…" : ""}`
-                          : "+ Adicionar observação"}
+                        <div
+                          className="w-2.5 h-2.5 rounded-full flex-shrink-0"
+                          style={{ backgroundColor: STATUS_COLOR[s] }}
+                        />
+                        <span className="flex-1">{STATUS_LABEL[s]}</span>
+                        {syncedSelected.status === s && (
+                          <span className="text-[#2AB9B0]">✓</span>
+                        )}
                       </button>
-                    )}
+                    ))}
                   </div>
-                )}
-                {!isAdmin && syncedSelected.notes && (
-                  <div className="mt-3 pt-3 border-t border-white/5">
-                    <p className="text-xs text-gray-500">{syncedSelected.notes}</p>
-                  </div>
-                )}
+
+                  {/* Notes toggle */}
+                  {isAdmin && (
+                    <div className="mt-3 pt-3 border-t border-white/5">
+                      {showNotes ? (
+                        <div className="flex flex-col gap-2">
+                          <textarea
+                            value={editNotes}
+                            onChange={(e) => setEditNotes(e.target.value)}
+                            rows={3}
+                            placeholder="Observações…"
+                            className="w-full bg-black/40 border border-white/10 rounded-xl px-3 py-2 text-white placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-[#2AB9B0] text-xs resize-none"
+                          />
+                          <div className="flex gap-1.5">
+                            <button
+                              onClick={() => setShowNotes(false)}
+                              className="flex-1 py-1.5 rounded-lg border border-white/10 text-gray-400 text-xs"
+                            >
+                              Cancelar
+                            </button>
+                            <button
+                              onClick={handleSaveNotes}
+                              disabled={saving}
+                              className="flex-1 py-1.5 rounded-lg bg-[#2AB9B0] text-white text-xs font-bold disabled:opacity-50"
+                            >
+                              Salvar
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <button
+                          onClick={() => setShowNotes(true)}
+                          className="w-full text-xs text-gray-500 hover:text-gray-300 text-left transition-colors"
+                        >
+                          {syncedSelected.notes
+                            ? `📝 ${syncedSelected.notes.slice(0, 40)}${syncedSelected.notes.length > 40 ? "…" : ""}`
+                            : "+ Adicionar observação"}
+                        </button>
+                      )}
+                    </div>
+                  )}
+                  {!isAdmin && syncedSelected.notes && (
+                    <div className="mt-3 pt-3 border-t border-white/5">
+                      <p className="text-xs text-gray-500">{syncedSelected.notes}</p>
+                    </div>
+                  )}
+                </div>
+              </>
+            ) : (
+              <div
+                className="bg-[#0F1E2E] border border-white/5 rounded-2xl flex-1 flex flex-col items-center justify-center text-center p-5"
+                style={{ height: 520 }}
+              >
+                <p className="text-3xl mb-3 opacity-60">🏢</p>
+                <p className="text-sm text-gray-500 leading-relaxed">
+                  Clique em uma unidade no prédio para ver detalhes
+                </p>
+                <p className="text-xs text-gray-600 mt-2">
+                  Arraste para girar · Scroll para zoom
+                </p>
               </div>
-            </>
-          ) : (
-            <div className="bg-[#0F1E2E] border border-white/5 rounded-2xl flex-1 flex flex-col items-center justify-center text-center p-5" style={{ height: 520 }}>
-              <p className="text-3xl mb-3 opacity-60">🏢</p>
-              <p className="text-sm text-gray-500 leading-relaxed">
-                Clique em uma unidade no prédio para ver detalhes
-              </p>
-              <p className="text-xs text-gray-600 mt-2">
-                Arraste para girar · Scroll para zoom
-              </p>
-            </div>
-          )}
+            )}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Legend */}
       <div className="flex flex-wrap gap-4 items-center bg-[#0F1E2E] border border-white/5 rounded-2xl px-5 py-3">
