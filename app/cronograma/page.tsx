@@ -204,80 +204,88 @@ export default function CronogramaPage() {
         </div>
       </div>
 
-      <div className={`flex-1 ${view==="predio"?"max-w-7xl":"max-w-2xl"} mx-auto w-full px-4 sm:px-6 py-6 flex flex-col gap-5`}>
+      <div className="flex-1 max-w-6xl mx-auto w-full px-4 sm:px-6 py-6 flex flex-col gap-5">
 
         {/* ── CALENDAR ── */}
-        {view==="calendar" && (<>
-          <div className="bg-[#0F1E2E] border border-white/5 rounded-2xl overflow-hidden shadow-xl">
-            <div className="flex items-center justify-between px-6 py-5 border-b border-white/5">
-              <button onClick={()=>setMonth(m=>new Date(m.getFullYear(),m.getMonth()-1,1))}
-                className="w-9 h-9 flex items-center justify-center rounded-xl bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white transition-all text-lg">‹</button>
-              <h2 className="text-lg font-bold">{MONTHS[month.getMonth()]} <span className="text-gray-500 font-normal">{month.getFullYear()}</span></h2>
-              <button onClick={()=>setMonth(m=>new Date(m.getFullYear(),m.getMonth()+1,1))}
-                className="w-9 h-9 flex items-center justify-center rounded-xl bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white transition-all text-lg">›</button>
-            </div>
-            <div className="grid grid-cols-7 px-4 pt-4 pb-2">
-              {DAYS_FULL.map((d,i)=>(
-                <div key={d} className={`text-center text-xs font-semibold py-1 ${i===0||i===6?"text-gray-600":"text-gray-500"}`}>{d}</div>
-              ))}
-            </div>
-            <div className="grid grid-cols-7 px-4 pb-4 gap-1">
-              {cells.map((day,i)=>{
-                if (!day) return <div key={i}/>;
-                const k=dayKey(day);
-                const dv=byDate[k]||[];
-                const isSel=k===selected, isToday=k===todayKey, isPast=k<todayKey;
-                const hasVisita=dv.some(v=>v.type==="visita");
-                const hasVistoria=dv.some(v=>v.type==="vistoria");
-                return (
-                  <button key={i} onClick={()=>setSelected(k)}
-                    className={`flex flex-col items-center justify-center rounded-xl transition-all min-h-[60px] sm:min-h-[68px] gap-1
-                      ${isSel?"bg-[#2AB9B0] shadow-lg shadow-[#2AB9B0]/20":isToday?"bg-[#2AB9B0]/10 ring-1 ring-[#2AB9B0]/50":"hover:bg-white/5"}
-                      ${isPast&&!isSel?"opacity-40":""}`}>
-                    <span className={`text-sm sm:text-base font-bold leading-none ${isSel?"text-white":isToday?"text-[#2AB9B0]":"text-gray-200"}`}>{day}</span>
-                    {dv.length>0&&(
-                      <div className="flex gap-0.5">
-                        {hasVisita&&<span className={`w-1.5 h-1.5 rounded-full ${isSel?"bg-white":"bg-[#18ABDA]"}`}/>}
-                        {hasVistoria&&<span className={`w-1.5 h-1.5 rounded-full ${isSel?"bg-white/70":"bg-red-400"}`}/>}
-                      </div>
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-            <div className="flex items-center gap-5 px-6 pb-5 border-t border-white/5 pt-4">
-              <div className="flex items-center gap-2"><span className="w-2.5 h-2.5 rounded-full bg-[#18ABDA]"/><span className="text-xs text-gray-500">Visita</span></div>
-              <div className="flex items-center gap-2"><span className="w-2.5 h-2.5 rounded-full bg-red-400"/><span className="text-xs text-gray-500">Vistoria</span></div>
-            </div>
-          </div>
+        {view==="calendar" && (
+          <div className="flex flex-col lg:flex-row gap-5 items-start">
 
-          {/* Day detail */}
-          <div className="bg-[#0F1E2E] border border-white/5 rounded-2xl overflow-hidden shadow-xl">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-white/5">
-              <div>
-                <p className="font-bold text-white capitalize">{fmtDay(selected)}</p>
-                <p className="text-sm text-gray-500 mt-0.5">{selectedVisits.length===0?"Nenhum agendamento":`${selectedVisits.length} agendamento${selectedVisits.length>1?"s":""}`}</p>
+            {/* Left: Calendar grid */}
+            <div className="w-full lg:flex-1 bg-[#0F1E2E] border border-white/5 rounded-2xl overflow-hidden shadow-xl">
+              <div className="flex items-center justify-between px-6 py-5 border-b border-white/5">
+                <button onClick={()=>setMonth(m=>new Date(m.getFullYear(),m.getMonth()-1,1))}
+                  className="w-9 h-9 flex items-center justify-center rounded-xl bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white transition-all text-lg">‹</button>
+                <h2 className="text-lg font-bold">{MONTHS[month.getMonth()]} <span className="text-gray-500 font-normal">{month.getFullYear()}</span></h2>
+                <button onClick={()=>setMonth(m=>new Date(m.getFullYear(),m.getMonth()+1,1))}
+                  className="w-9 h-9 flex items-center justify-center rounded-xl bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white transition-all text-lg">›</button>
               </div>
-              {isAdmin&&(
-                <button onClick={()=>openNew(selected)}
-                  className="flex items-center gap-1.5 bg-white/5 hover:bg-[#2AB9B0] border border-white/10 hover:border-[#2AB9B0] text-gray-400 hover:text-white text-sm font-semibold px-4 py-2 rounded-xl transition-all">
-                  + Agendar
-                </button>
-              )}
-            </div>
-            {loading?(
-              <div className="py-14 text-center text-gray-600 text-sm">Carregando...</div>
-            ):selectedVisits.length===0?(
-              <div className="py-14 text-center"><p className="text-gray-600">Nenhum agendamento para este dia</p></div>
-            ):(
-              <div className="divide-y divide-white/5">
-                {selectedVisits.map(v=>(
-                  <VisitCard key={v.id} visit={v} isAdmin={isAdmin} onEdit={openEdit} onDelete={setConfirmDelete} onStatus={setStatus}/>
+              <div className="grid grid-cols-7 px-5 pt-4 pb-2">
+                {DAYS_FULL.map((d,i)=>(
+                  <div key={d} className={`text-center text-xs font-semibold py-1 ${i===0||i===6?"text-gray-600":"text-gray-500"}`}>{d}</div>
                 ))}
               </div>
-            )}
+              <div className="grid grid-cols-7 px-5 pb-5 gap-1.5">
+                {cells.map((day,i)=>{
+                  if (!day) return <div key={i}/>;
+                  const k=dayKey(day);
+                  const dv=byDate[k]||[];
+                  const isSel=k===selected, isToday=k===todayKey, isPast=k<todayKey;
+                  const hasVisita=dv.some(v=>v.type==="visita");
+                  const hasVistoria=dv.some(v=>v.type==="vistoria");
+                  return (
+                    <button key={i} onClick={()=>setSelected(k)}
+                      className={`flex flex-col items-center justify-center rounded-xl transition-all min-h-[72px] gap-1.5
+                        ${isSel?"bg-[#2AB9B0] shadow-lg shadow-[#2AB9B0]/20":isToday?"bg-[#2AB9B0]/10 ring-1 ring-[#2AB9B0]/50":"hover:bg-white/5"}
+                        ${isPast&&!isSel?"opacity-40":""}`}>
+                      <span className={`text-base font-bold leading-none ${isSel?"text-white":isToday?"text-[#2AB9B0]":"text-gray-200"}`}>{day}</span>
+                      {dv.length>0&&(
+                        <div className="flex gap-1">
+                          {hasVisita&&<span className={`w-2 h-2 rounded-full ${isSel?"bg-white":"bg-[#18ABDA]"}`}/>}
+                          {hasVistoria&&<span className={`w-2 h-2 rounded-full ${isSel?"bg-white/70":"bg-red-400"}`}/>}
+                        </div>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+              <div className="flex items-center gap-6 px-6 pb-5 border-t border-white/5 pt-4">
+                <div className="flex items-center gap-2"><span className="w-2.5 h-2.5 rounded-full bg-[#18ABDA]"/><span className="text-xs text-gray-500">Visita</span></div>
+                <div className="flex items-center gap-2"><span className="w-2.5 h-2.5 rounded-full bg-red-400"/><span className="text-xs text-gray-500">Vistoria</span></div>
+              </div>
+            </div>
+
+            {/* Right: Day detail */}
+            <div className="w-full lg:w-96 flex-shrink-0 bg-[#0F1E2E] border border-white/5 rounded-2xl overflow-hidden shadow-xl">
+              <div className="flex items-center justify-between px-6 py-4 border-b border-white/5">
+                <div>
+                  <p className="font-bold text-white capitalize">{fmtDay(selected)}</p>
+                  <p className="text-sm text-gray-500 mt-0.5">{selectedVisits.length===0?"Nenhum agendamento":`${selectedVisits.length} agendamento${selectedVisits.length>1?"s":""}`}</p>
+                </div>
+                {isAdmin&&(
+                  <button onClick={()=>openNew(selected)}
+                    className="flex items-center gap-1.5 bg-white/5 hover:bg-[#2AB9B0] border border-white/10 hover:border-[#2AB9B0] text-gray-400 hover:text-white text-sm font-semibold px-4 py-2 rounded-xl transition-all">
+                    + Agendar
+                  </button>
+                )}
+              </div>
+              {loading?(
+                <div className="py-20 text-center text-gray-600 text-sm">Carregando...</div>
+              ):selectedVisits.length===0?(
+                <div className="py-20 text-center">
+                  <p className="text-3xl mb-3 opacity-30">📋</p>
+                  <p className="text-gray-600 text-sm">Nenhum agendamento para este dia</p>
+                  {isAdmin&&<button onClick={()=>openNew(selected)} className="mt-4 text-xs text-[#2AB9B0] hover:underline">+ Criar agendamento</button>}
+                </div>
+              ):(
+                <div className="divide-y divide-white/5 overflow-y-auto max-h-[520px]">
+                  {selectedVisits.map(v=>(
+                    <VisitCard key={v.id} visit={v} isAdmin={isAdmin} onEdit={openEdit} onDelete={setConfirmDelete} onStatus={setStatus}/>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
-        </>)}
+        )}
 
         {/* ── LISTA ── */}
         {view==="lista" && (
