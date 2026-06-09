@@ -557,10 +557,14 @@ function ListaView({visits,loading,isAdmin,onEdit,onDelete,onNew,onStatus,onSele
                         </div>
                       )}
                     </div>
-                    <div className="flex gap-2 px-6 pb-4 ml-14">
+                    <div className="flex flex-wrap gap-2 px-6 pb-4 ml-14">
                       <button onClick={()=>onStatus(v.id,"concluida")}
                         className="flex items-center gap-1.5 text-xs font-semibold text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 px-3 py-1.5 rounded-lg transition-all">
                         ✅ Concluída
+                      </button>
+                      <button onClick={()=>onStatus(v.id,"realizada_pendencias")}
+                        className="flex items-center gap-1.5 text-xs font-semibold text-amber-400 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/20 px-3 py-1.5 rounded-lg transition-all">
+                        ⚠️ Com pendências
                       </button>
                       <button onClick={()=>onStatus(v.id,"nao_realizada")}
                         className="flex items-center gap-1.5 text-xs font-semibold text-red-400 bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 px-3 py-1.5 rounded-lg transition-all">
