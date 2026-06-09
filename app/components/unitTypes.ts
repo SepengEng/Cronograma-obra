@@ -19,7 +19,7 @@ export type Unit = {
 
 export const STATUS_COLOR: Record<UnitStatus, string> = {
   disponivel:    "#22C55E",  // verde vivo
-  agendada:      "#F97316",  // laranja
+  agendada:      "#92400E",  // marrom
   ja_vistoriado: "#2563EB",  // azul sólido
   revistoria:    "#06B6D4",  // ciano (claramente diferente do azul)
   concluida:     "#7C3AED",  // roxo
