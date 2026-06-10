@@ -164,7 +164,7 @@ export default function CronogramaPage() {
       {/* Background image with low opacity */}
       <div
         className="fixed inset-0 bg-cover bg-center bg-no-repeat pointer-events-none"
-        style={{ backgroundImage: "url('/empreendimento.jpg')", opacity: 0.06, zIndex: 0 }}
+        style={{ backgroundImage: "url('/empreendimento.jpg')", opacity: 0.10, zIndex: 0 }}
         aria-hidden="true"
       />
 
