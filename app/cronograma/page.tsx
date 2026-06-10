@@ -160,10 +160,16 @@ export default function CronogramaPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#0B1929] text-white flex flex-col">
+    <div className="min-h-screen bg-[#0B1929] text-white flex flex-col relative">
+      {/* Background image with low opacity */}
+      <div
+        className="fixed inset-0 bg-cover bg-center bg-no-repeat pointer-events-none"
+        style={{ backgroundImage: "url('/empreendimento.jpg')", opacity: 0.06, zIndex: 0 }}
+        aria-hidden="true"
+      />
 
       {/* Header */}
-      <header className="bg-[#0F1E2E] border-b border-white/5 px-5 py-4">
+      <header className="relative z-10 bg-[#0F1E2E] border-b border-white/5 px-5 py-4">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-3">
             <img src="/logo.png" alt="SBE" className="h-10 w-auto object-contain flex-shrink-0" />
@@ -197,7 +203,7 @@ export default function CronogramaPage() {
       </header>
 
       {/* Tabs */}
-      <div className="bg-[#0F1E2E] border-b border-white/5 px-5">
+      <div className="relative z-10 bg-[#0F1E2E] border-b border-white/5 px-5">
         <div className="max-w-7xl mx-auto flex overflow-x-auto">
           {([["calendar","📅 Calendário"],["lista","📋 Lista"],["historico","📜 Histórico"],["predio","🏢 Prédio"]] as const).map(([v,label])=>(
             <button key={v} onClick={()=>setView(v)}
@@ -209,7 +215,7 @@ export default function CronogramaPage() {
         </div>
       </div>
 
-      <div className="flex-1 max-w-6xl mx-auto w-full px-4 sm:px-6 py-6 flex flex-col gap-5">
+      <div className="relative z-10 flex-1 max-w-6xl mx-auto w-full px-4 sm:px-6 py-6 flex flex-col gap-5">
 
         {/* ── CALENDAR ── */}
         {view==="calendar" && (
