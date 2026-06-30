@@ -16,12 +16,14 @@ export async function PATCH(
     return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
   }
   const { id } = await params;
-  const { status, notes } = await req.json();
+  const { status, notes, responsavel, pendencias } = await req.json();
   const unit = await prisma.unit.update({
     where: { id },
     data: {
       ...(status && { status }),
       ...(notes !== undefined && { notes: notes || null }),
+      ...(responsavel !== undefined && { responsavel: responsavel || null }),
+      ...(pendencias !== undefined && { pendencias }),
     },
   });
   return NextResponse.json(unit);

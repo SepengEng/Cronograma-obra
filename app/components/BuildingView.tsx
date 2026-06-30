@@ -3,7 +3,7 @@
 import dynamic from "next/dynamic";
 import { useState, useRef, useEffect } from "react";
 import { createPortal } from "react-dom";
-import type { Unit, UnitStatus } from "./unitTypes";
+import type { Unit, UnitStatus, PendenciaItem } from "./unitTypes";
 import { STATUS_COLOR, STATUS_LABEL, STATUS_EMOJI, ALL_STATUSES } from "./unitTypes";
 
 const Building3D = dynamic(() => import("./Building3D"), {
@@ -228,6 +228,121 @@ function GridView({
   );
 }
 
+function parsePendencias(raw: string | null): PendenciaItem[] {
+  if (!raw) return [];
+  try { return JSON.parse(raw); } catch { return []; }
+}
+
+/* ── Checklist de Pendências ───────────────────────────────────── */
+function PendenciasPanel({
+  unit,
+  isAdmin,
+  onSave,
+}: {
+  unit: Unit;
+  isAdmin: boolean;
+  onSave: (items: PendenciaItem[]) => Promise<void>;
+}) {
+  const [items, setItems] = useState<PendenciaItem[]>(() => parsePendencias(unit.pendencias));
+  const [newText, setNewText] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  // Sync when unit changes externally
+  useEffect(() => {
+    setItems(parsePendencias(unit.pendencias));
+  }, [unit.pendencias]);
+
+  const save = async (next: PendenciaItem[]) => {
+    setSaving(true);
+    await onSave(next);
+    setSaving(false);
+  };
+
+  const toggle = (id: string) => {
+    const next = items.map((it) => it.id === id ? { ...it, done: !it.done } : it);
+    setItems(next);
+    save(next);
+  };
+
+  const remove = (id: string) => {
+    const next = items.filter((it) => it.id !== id);
+    setItems(next);
+    save(next);
+  };
+
+  const add = () => {
+    const text = newText.trim();
+    if (!text) return;
+    const next = [...items, { id: crypto.randomUUID(), text, done: false }];
+    setItems(next);
+    setNewText("");
+    save(next);
+  };
+
+  const done = items.filter((i) => i.done).length;
+
+  return (
+    <div className="flex flex-col gap-2">
+      <div className="flex items-center justify-between mb-0.5">
+        <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Pendências</p>
+        {items.length > 0 && (
+          <span className="text-[10px] text-gray-500">{done}/{items.length}</span>
+        )}
+      </div>
+
+      {items.length === 0 && (
+        <p className="text-[11px] text-gray-600 italic">Nenhuma pendência registrada</p>
+      )}
+
+      {items.map((it) => (
+        <div key={it.id} className="flex items-start gap-2 group">
+          <button
+            onClick={() => isAdmin && toggle(it.id)}
+            className={`mt-0.5 w-4 h-4 rounded flex-shrink-0 border flex items-center justify-center transition-all
+              ${it.done
+                ? "bg-[#2AB9B0] border-[#2AB9B0] text-white"
+                : "border-white/20 hover:border-[#2AB9B0]/60"}
+              ${!isAdmin ? "cursor-default" : "cursor-pointer"}
+            `}
+          >
+            {it.done && <span className="text-[9px] font-bold">✓</span>}
+          </button>
+          <span className={`text-xs flex-1 leading-tight pt-0.5 ${it.done ? "line-through text-gray-600" : "text-gray-300"}`}>
+            {it.text}
+          </span>
+          {isAdmin && (
+            <button
+              onClick={() => remove(it.id)}
+              className="opacity-0 group-hover:opacity-100 text-gray-600 hover:text-red-400 text-[10px] transition-all flex-shrink-0 mt-0.5"
+            >
+              ✕
+            </button>
+          )}
+        </div>
+      ))}
+
+      {isAdmin && (
+        <div className="flex gap-1.5 mt-1">
+          <input
+            value={newText}
+            onChange={(e) => setNewText(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && add()}
+            placeholder="Nova pendência…"
+            className="flex-1 bg-black/40 border border-white/10 rounded-lg px-2 py-1 text-[11px] text-white placeholder-gray-600 focus:outline-none focus:ring-1 focus:ring-[#2AB9B0] min-w-0"
+          />
+          <button
+            onClick={add}
+            disabled={saving || !newText.trim()}
+            className="px-2 py-1 rounded-lg bg-[#2AB9B0] text-white text-[11px] font-bold disabled:opacity-40 flex-shrink-0"
+          >
+            +
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 /* ── Main BuildingView ─────────────────────────────────────────── */
 export default function BuildingView({
   units,
@@ -236,13 +351,15 @@ export default function BuildingView({
 }: {
   units: Unit[];
   isAdmin: boolean;
-  onUpdateUnit: (id: string, status: UnitStatus, notes?: string) => Promise<void>;
+  onUpdateUnit: (id: string, status: UnitStatus, notes?: string, extras?: { responsavel?: string; pendencias?: string }) => Promise<void>;
 }) {
   const [viewMode, setViewMode] = useState<"3d" | "grid">("3d");
   const [selectedUnit, setSelectedUnit] = useState<Unit | null>(null);
   const [saving, setSaving] = useState(false);
   const [editNotes, setEditNotes] = useState("");
   const [showNotes, setShowNotes] = useState(false);
+  const [editResponsavel, setEditResponsavel] = useState("");
+  const [showResponsavel, setShowResponsavel] = useState(false);
 
   // Keep selectedUnit in sync with latest units data
   const syncedSelected = selectedUnit
@@ -252,7 +369,9 @@ export default function BuildingView({
   const handleSelect = (u: Unit | null) => {
     setSelectedUnit(u);
     setEditNotes(u?.notes ?? "");
+    setEditResponsavel(u?.responsavel ?? "");
     setShowNotes(false);
+    setShowResponsavel(false);
   };
 
   const handleStatusChange = async (status: UnitStatus) => {
@@ -268,6 +387,21 @@ export default function BuildingView({
     await onUpdateUnit(syncedSelected.id, syncedSelected.status, editNotes);
     setSaving(false);
     setShowNotes(false);
+  };
+
+  const handleSaveResponsavel = async () => {
+    if (!syncedSelected || !isAdmin) return;
+    setSaving(true);
+    await onUpdateUnit(syncedSelected.id, syncedSelected.status, undefined, { responsavel: editResponsavel });
+    setSaving(false);
+    setShowResponsavel(false);
+  };
+
+  const handleSavePendencias = async (items: PendenciaItem[]) => {
+    if (!syncedSelected) return;
+    await onUpdateUnit(syncedSelected.id, syncedSelected.status, undefined, {
+      pendencias: JSON.stringify(items),
+    });
   };
 
   // Stats per status
@@ -359,6 +493,15 @@ export default function BuildingView({
                   </p>
                 </div>
 
+                {/* Pendências checklist */}
+                <div className="bg-[#0F1E2E] border border-white/5 rounded-2xl p-4">
+                  <PendenciasPanel
+                    unit={syncedSelected}
+                    isAdmin={isAdmin}
+                    onSave={handleSavePendencias}
+                  />
+                </div>
+
                 {/* Status selector */}
                 <div className="bg-[#0F1E2E] border border-white/5 rounded-2xl p-4 flex-1">
                   <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3">
@@ -437,6 +580,34 @@ export default function BuildingView({
                       <p className="text-xs text-gray-500">{syncedSelected.notes}</p>
                     </div>
                   )}
+
+                  {/* Responsável */}
+                  <div className="mt-3 pt-3 border-t border-white/5">
+                    {isAdmin && showResponsavel ? (
+                      <div className="flex flex-col gap-2">
+                        <input
+                          value={editResponsavel}
+                          onChange={(e) => setEditResponsavel(e.target.value)}
+                          onKeyDown={(e) => e.key === "Enter" && handleSaveResponsavel()}
+                          placeholder="Nome do responsável…"
+                          className="w-full bg-black/40 border border-white/10 rounded-xl px-3 py-2 text-white placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-[#2AB9B0] text-xs"
+                        />
+                        <div className="flex gap-1.5">
+                          <button onClick={() => setShowResponsavel(false)} className="flex-1 py-1.5 rounded-lg border border-white/10 text-gray-400 text-xs">Cancelar</button>
+                          <button onClick={handleSaveResponsavel} disabled={saving} className="flex-1 py-1.5 rounded-lg bg-[#2AB9B0] text-white text-xs font-bold disabled:opacity-50">Salvar</button>
+                        </div>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => { if (isAdmin) { setEditResponsavel(syncedSelected.responsavel ?? ""); setShowResponsavel(true); } }}
+                        className={`w-full text-xs text-left transition-colors ${isAdmin ? "text-gray-500 hover:text-gray-300" : "text-gray-500 cursor-default"}`}
+                      >
+                        {syncedSelected.responsavel
+                          ? `👤 ${syncedSelected.responsavel}`
+                          : isAdmin ? "+ Adicionar responsável" : ""}
+                      </button>
+                    )}
+                  </div>
                 </div>
               </>
             ) : (

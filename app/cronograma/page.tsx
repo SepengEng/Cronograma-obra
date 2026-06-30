@@ -151,10 +151,12 @@ export default function CronogramaPage() {
     if (r.ok) setUsers(p=>p.filter(u=>u.id!==uid));
   }
 
-  async function handleUnitUpdate(id:string, status:UnitStatus, notes?:string) {
+  async function handleUnitUpdate(id:string, status:UnitStatus, notes?:string, extras?: {responsavel?:string; pendencias?:string}) {
     if (!session) return;
     const body: Record<string,unknown> = { status };
     if (notes !== undefined) body.notes = notes;
+    if (extras?.responsavel !== undefined) body.responsavel = extras.responsavel;
+    if (extras?.pendencias !== undefined) body.pendencias = extras.pendencias;
     const r=await fetch(`/api/units/${id}`,{method:"PATCH",headers:{"Content-Type":"application/json","x-user-id":session.id},body:JSON.stringify(body)});
     if (r.ok) { const updated=await r.json(); setUnits(p=>p.map(u=>u.id===updated.id?updated:u)); }
   }

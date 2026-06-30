@@ -29,13 +29,15 @@ model Visit {
 }
 
 model Unit {
-  id        String   @id @default(cuid())
-  number    String   @unique
-  floor     Int
-  position  Int
-  tower     String   @default("Torre Única")
-  status    String   @default("sem_vistoria") // "sem_vistoria" | "agendada" | "concluida" | "pendencia" | "indisponivel"
-  notes     String?
-  visits    Visit[]
-  updatedAt DateTime @updatedAt
+  id          String   @id @default(cuid())
+  number      String   @unique
+  floor       Int
+  position    Int
+  tower       String   @default("Torre Única")
+  status      String   @default("sem_vistoria") // "sem_vistoria" | "agendada" | "concluida" | "pendencia" | "indisponivel"
+  notes       String?
+  responsavel String?
+  pendencias  String?  // JSON: [{id,text,done}]
+  visits      Visit[]
+  updatedAt   DateTime @updatedAt
 }

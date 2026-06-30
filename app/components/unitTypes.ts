@@ -6,6 +6,12 @@ export type UnitStatus =
   | "pendencia"     // amarelo — tem pendências
   | "indisponivel"; // vermelho — sem acesso
 
+export type PendenciaItem = {
+  id: string;
+  text: string;
+  done: boolean;
+};
+
 export type Unit = {
   id: string;
   number: string;
@@ -14,6 +20,8 @@ export type Unit = {
   tower: string;
   status: UnitStatus;
   notes: string | null;
+  responsavel: string | null;
+  pendencias: string | null; // JSON: PendenciaItem[]
 };
 
 export const STATUS_COLOR: Record<UnitStatus, string> = {
