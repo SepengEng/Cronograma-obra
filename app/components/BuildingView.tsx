@@ -89,7 +89,7 @@ function UnitRow({
   isAdmin: boolean;
   onUpdateUnit: (id: string, status: UnitStatus, notes?: string, extras?: { responsavel?: string; pendencias?: string }) => Promise<void>;
 }) {
-  const [expanded, setExpanded] = useState(false);
+  const [expanded, setExpanded] = useState(() => unit.status === "pendencia");
   const [openStatus, setOpenStatus] = useState(false);
   const statusBtnRef = useRef<HTMLButtonElement>(null);
   const [statusRect, setStatusRect] = useState<DOMRect | null>(null);
@@ -116,6 +116,7 @@ function UnitRow({
     await onUpdateUnit(unit.id, s);
     setSaving(false);
     setOpenStatus(false);
+    if (s === "pendencia") setExpanded(true);
   };
 
   const handleRespSave = async () => {
@@ -131,7 +132,11 @@ function UnitRow({
 
   return (
     <>
-      <tr className="border-b border-white/[0.04] hover:bg-white/[0.02] transition-colors">
+      <tr className={`border-b border-white/[0.04] transition-colors ${
+        unit.status === "pendencia"
+          ? "hover:bg-[#EAB308]/[0.04] bg-[#EAB308]/[0.02]"
+          : "hover:bg-white/[0.02]"
+      }`}>
         {/* Unidade */}
         <td className="px-4 py-3">
           <div className="flex items-center gap-2">
@@ -207,8 +212,12 @@ function UnitRow({
             className="flex items-center gap-2 group"
           >
             {total === 0 ? (
-              <span className="text-[11px] text-gray-600 group-hover:text-gray-400 transition-colors">
-                {isAdmin ? "+ Adicionar" : "—"}
+              <span className={`text-[11px] transition-colors ${
+                unit.status === "pendencia"
+                  ? "text-[#EAB308]/70 group-hover:text-[#EAB308]"
+                  : "text-gray-600 group-hover:text-gray-400"
+              }`}>
+                {unit.status === "pendencia" ? "⚠️ Definir itens" : isAdmin ? "+ Adicionar" : "—"}
               </span>
             ) : (
               <>
@@ -599,7 +608,16 @@ export default function BuildingView({
                 </div>
 
                 {/* Pendências checklist */}
-                <div className="bg-[#0F1E2E] border border-white/5 rounded-2xl p-4">
+                <div className={`bg-[#0F1E2E] rounded-2xl p-4 transition-all ${
+                  syncedSelected.status === "pendencia"
+                    ? "border border-[#EAB308]/40 shadow-[0_0_12px_#EAB30820]"
+                    : "border border-white/5"
+                }`}>
+                  {syncedSelected.status === "pendencia" && (
+                    <p className="text-[10px] font-bold text-[#EAB308] uppercase tracking-wider mb-2">
+                      ⚠️ Itens a resolver
+                    </p>
+                  )}
                   <PendenciasPanel
                     unit={syncedSelected}
                     isAdmin={isAdmin}
