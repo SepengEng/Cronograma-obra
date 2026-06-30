@@ -79,7 +79,176 @@ function StatusPopover({
   );
 }
 
-/* ── 2-D grid view ─────────────────────────────────────────────── */
+/* ── Table row with inline checklist expansion ──────────────────── */
+function UnitRow({
+  unit,
+  isAdmin,
+  onUpdateUnit,
+}: {
+  unit: Unit;
+  isAdmin: boolean;
+  onUpdateUnit: (id: string, status: UnitStatus, notes?: string, extras?: { responsavel?: string; pendencias?: string }) => Promise<void>;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const [openStatus, setOpenStatus] = useState(false);
+  const statusBtnRef = useRef<HTMLButtonElement>(null);
+  const [statusRect, setStatusRect] = useState<DOMRect | null>(null);
+  const [editResp, setEditResp] = useState(unit.responsavel ?? "");
+  const [editingResp, setEditingResp] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  // sync responsavel when unit changes externally
+  useEffect(() => { setEditResp(unit.responsavel ?? ""); }, [unit.responsavel]);
+
+  const items = parsePendencias(unit.pendencias);
+  const doneCount = items.filter((i) => i.done).length;
+  const total = items.length;
+  const allDone = total > 0 && doneCount === total;
+
+  const handleStatusClick = () => {
+    if (!isAdmin) return;
+    const rect = statusBtnRef.current?.getBoundingClientRect();
+    if (rect) { setStatusRect(rect); setOpenStatus(true); }
+  };
+
+  const handleStatusSelect = async (s: UnitStatus) => {
+    setSaving(true);
+    await onUpdateUnit(unit.id, s);
+    setSaving(false);
+    setOpenStatus(false);
+  };
+
+  const handleRespSave = async () => {
+    setSaving(true);
+    await onUpdateUnit(unit.id, unit.status, undefined, { responsavel: editResp });
+    setSaving(false);
+    setEditingResp(false);
+  };
+
+  const handleSavePendencias = async (items: PendenciaItem[]) => {
+    await onUpdateUnit(unit.id, unit.status, undefined, { pendencias: JSON.stringify(items) });
+  };
+
+  return (
+    <>
+      <tr className="border-b border-white/[0.04] hover:bg-white/[0.02] transition-colors">
+        {/* Unidade */}
+        <td className="px-4 py-3">
+          <div className="flex items-center gap-2">
+            <div
+              className="w-2 h-2 rounded-full flex-shrink-0"
+              style={{ backgroundColor: STATUS_COLOR[unit.status as UnitStatus] }}
+            />
+            <span className="text-sm font-bold text-white">{unit.number}</span>
+          </div>
+        </td>
+
+        {/* Andar */}
+        <td className="px-4 py-3 text-xs text-gray-400">{unit.floor}º andar</td>
+
+        {/* Status */}
+        <td className="px-4 py-3">
+          <button
+            ref={statusBtnRef}
+            onClick={handleStatusClick}
+            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold border transition-all
+              ${isAdmin ? "hover:brightness-110 cursor-pointer" : "cursor-default"}`}
+            style={{
+              backgroundColor: STATUS_COLOR[unit.status as UnitStatus] + "22",
+              borderColor: STATUS_COLOR[unit.status as UnitStatus] + "55",
+              color: STATUS_COLOR[unit.status as UnitStatus],
+            }}
+          >
+            <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: STATUS_COLOR[unit.status as UnitStatus] }} />
+            {STATUS_LABEL[unit.status as UnitStatus]}
+            {isAdmin && <span className="opacity-50 ml-0.5">▾</span>}
+          </button>
+          {openStatus && statusRect && (
+            <StatusPopover
+              unit={unit}
+              anchorRect={statusRect}
+              isAdmin={isAdmin}
+              saving={saving}
+              onSelect={handleStatusSelect}
+              onClose={() => setOpenStatus(false)}
+            />
+          )}
+        </td>
+
+        {/* Responsável */}
+        <td className="px-4 py-3">
+          {editingResp ? (
+            <div className="flex items-center gap-1.5">
+              <input
+                autoFocus
+                value={editResp}
+                onChange={(e) => setEditResp(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter") handleRespSave(); if (e.key === "Escape") setEditingResp(false); }}
+                className="bg-black/40 border border-white/10 rounded-lg px-2 py-1 text-xs text-white placeholder-gray-600 focus:outline-none focus:ring-1 focus:ring-[#2AB9B0] w-36"
+                placeholder="Nome…"
+              />
+              <button onClick={handleRespSave} disabled={saving} className="text-[#2AB9B0] text-[10px] font-bold px-1.5 py-0.5 rounded bg-[#2AB9B0]/10 hover:bg-[#2AB9B0]/20">✓</button>
+              <button onClick={() => setEditingResp(false)} className="text-gray-500 text-[10px] px-1 py-0.5 rounded hover:text-gray-300">✕</button>
+            </div>
+          ) : (
+            <button
+              onClick={() => isAdmin && setEditingResp(true)}
+              className={`text-xs text-left transition-colors ${unit.responsavel ? "text-gray-300" : "text-gray-600"} ${isAdmin ? "hover:text-white" : "cursor-default"}`}
+            >
+              {unit.responsavel ?? (isAdmin ? "+ Responsável" : "—")}
+            </button>
+          )}
+        </td>
+
+        {/* Pendências */}
+        <td className="px-4 py-3">
+          <button
+            onClick={() => setExpanded((v) => !v)}
+            className="flex items-center gap-2 group"
+          >
+            {total === 0 ? (
+              <span className="text-[11px] text-gray-600 group-hover:text-gray-400 transition-colors">
+                {isAdmin ? "+ Adicionar" : "—"}
+              </span>
+            ) : (
+              <>
+                <div className="flex items-center gap-1">
+                  {/* mini progress bar */}
+                  <div className="w-16 h-1.5 bg-white/10 rounded-full overflow-hidden">
+                    <div
+                      className="h-full rounded-full transition-all"
+                      style={{
+                        width: `${(doneCount / total) * 100}%`,
+                        backgroundColor: allDone ? "#22C55E" : "#EAB308",
+                      }}
+                    />
+                  </div>
+                  <span className="text-[11px] font-semibold" style={{ color: allDone ? "#22C55E" : "#EAB308" }}>
+                    {doneCount}/{total}
+                  </span>
+                </div>
+              </>
+            )}
+            <span className="text-gray-600 group-hover:text-gray-400 text-[11px] transition-colors">
+              {expanded ? "▴" : "▾"}
+            </span>
+          </button>
+        </td>
+      </tr>
+
+      {/* Expanded checklist row */}
+      {expanded && (
+        <tr className="border-b border-white/[0.04]">
+          <td colSpan={5} className="px-6 py-3 bg-[#0A1521]">
+            <PendenciasPanel unit={unit} isAdmin={isAdmin} onSave={handleSavePendencias} />
+          </td>
+        </tr>
+      )}
+    </>
+  );
+}
+
+/* ── Table view ─────────────────────────────────────────────────── */
 function GridView({
   units,
   isAdmin,
@@ -87,49 +256,26 @@ function GridView({
 }: {
   units: Unit[];
   isAdmin: boolean;
-  onUpdateUnit: (id: string, status: UnitStatus, notes?: string) => Promise<void>;
+  onUpdateUnit: (id: string, status: UnitStatus, notes?: string, extras?: { responsavel?: string; pendencias?: string }) => Promise<void>;
 }) {
-  // Store the open unit AND the DOMRect of the button that opened it
-  const [openUnit, setOpenUnit] = useState<{ unit: Unit; rect: DOMRect } | null>(null);
-  const [saving, setSaving] = useState(false);
   const [filterStatus, setFilterStatus] = useState<UnitStatus | "all">("all");
+  const [search, setSearch] = useState("");
 
-  const floors = Array.from(new Set(units.map((u) => u.floor))).sort((a, b) => b - a); // 16→1
-  const positions = Array.from(new Set(units.map((u) => u.position))).sort((a, b) => a - b);
-
-  const unitMap = new Map(units.map((u) => [`${u.floor}-${u.position}`, u]));
-
-  const filtered = filterStatus === "all" ? units : units.filter((u) => u.status === filterStatus);
-  const filteredIds = new Set(filtered.map((u) => u.id));
-
-  const handleSelect = async (unit: Unit, s: UnitStatus) => {
-    if (!isAdmin) return;
-    setSaving(true);
-    await onUpdateUnit(unit.id, s);
-    setSaving(false);
-  };
-
-  // Keep open unit in sync when units data refreshes after a save
-  const syncedOpenUnit = openUnit
-    ? { ...openUnit, unit: units.find((u) => u.id === openUnit.unit.id) ?? openUnit.unit }
-    : null;
+  const filtered = units
+    .filter((u) => filterStatus === "all" || u.status === filterStatus)
+    .filter((u) => !search || u.number.includes(search) || (u.responsavel ?? "").toLowerCase().includes(search.toLowerCase()))
+    .sort((a, b) => a.floor !== b.floor ? b.floor - a.floor : a.position - b.position);
 
   return (
-    <div className="flex flex-col gap-4">
-      {/* Status picker portal — rendered at body level, never clipped */}
-      {syncedOpenUnit && isAdmin && (
-        <StatusPopover
-          unit={syncedOpenUnit.unit}
-          anchorRect={syncedOpenUnit.rect}
-          isAdmin={isAdmin}
-          saving={saving}
-          onSelect={(s) => handleSelect(syncedOpenUnit.unit, s)}
-          onClose={() => setOpenUnit(null)}
-        />
-      )}
-
-      {/* Filter chips */}
+    <div className="flex flex-col gap-3">
+      {/* Filters */}
       <div className="flex flex-wrap gap-2 items-center">
+        <input
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Buscar unidade ou responsável…"
+          className="bg-[#0F1E2E] border border-white/10 rounded-xl px-3 py-1.5 text-xs text-white placeholder-gray-600 focus:outline-none focus:ring-1 focus:ring-[#2AB9B0] w-52"
+        />
         <button
           onClick={() => setFilterStatus("all")}
           className={`px-3 py-1 rounded-full text-xs font-semibold border transition-all
@@ -139,6 +285,7 @@ function GridView({
         </button>
         {ALL_STATUSES.map((s) => {
           const count = units.filter((u) => u.status === s).length;
+          if (count === 0) return null;
           return (
             <button
               key={s}
@@ -154,74 +301,32 @@ function GridView({
         })}
       </div>
 
-      {/* Grid */}
-      <div className="overflow-x-auto rounded-2xl border border-white/5 bg-[#0A1521]">
+      {/* Table */}
+      <div className="rounded-2xl border border-white/5 bg-[#0A1521] overflow-hidden">
         <table className="w-full border-collapse">
           <thead>
-            <tr>
-              <th className="w-10 px-3 py-2 text-[10px] font-bold text-gray-600 uppercase tracking-wider text-right border-b border-white/5">
-                Andar
-              </th>
-              {positions.map((p) => (
-                <th key={p} className="px-2 py-2 text-[10px] font-bold text-gray-600 uppercase tracking-wider text-center border-b border-white/5">
-                  P{p}
-                </th>
-              ))}
+            <tr className="border-b border-white/5">
+              <th className="px-4 py-3 text-[10px] font-bold text-gray-500 uppercase tracking-wider text-left">Unidade</th>
+              <th className="px-4 py-3 text-[10px] font-bold text-gray-500 uppercase tracking-wider text-left">Andar</th>
+              <th className="px-4 py-3 text-[10px] font-bold text-gray-500 uppercase tracking-wider text-left">Status</th>
+              <th className="px-4 py-3 text-[10px] font-bold text-gray-500 uppercase tracking-wider text-left">Responsável</th>
+              <th className="px-4 py-3 text-[10px] font-bold text-gray-500 uppercase tracking-wider text-left">Pendências</th>
             </tr>
           </thead>
           <tbody>
-            {floors.map((floor) => (
-              <tr key={floor} className="border-b border-white/[0.04] last:border-0">
-                <td className="px-3 py-1.5 text-xs font-bold text-[#2AB9B0] text-right w-10 whitespace-nowrap">
-                  {floor}º
-                </td>
-                {positions.map((pos) => {
-                  const unit = unitMap.get(`${floor}-${pos}`);
-                  if (!unit) return <td key={pos} className="px-2 py-1.5" />;
-
-                  const isOpen = openUnit?.unit.id === unit.id;
-                  const dimmed = filterStatus !== "all" && !filteredIds.has(unit.id);
-
-                  return (
-                    <td key={pos} className="px-1.5 py-1.5 text-center">
-                      <button
-                        onClick={(e) => {
-                          if (!isAdmin) return;
-                          const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-                          setOpenUnit(isOpen ? null : { unit, rect });
-                        }}
-                        title={isAdmin ? `Alterar: ${STATUS_LABEL[unit.status as UnitStatus]}` : STATUS_LABEL[unit.status as UnitStatus]}
-                        className={`relative flex items-center justify-center rounded-lg text-[11px] font-bold text-white w-14 h-8 transition-all select-none
-                          ${isAdmin ? "cursor-pointer hover:scale-110 hover:shadow-lg" : "cursor-default"}
-                          ${isOpen ? "ring-2 ring-white/50 scale-110" : ""}
-                          ${dimmed ? "opacity-20" : ""}
-                        `}
-                        style={{
-                          backgroundColor: STATUS_COLOR[unit.status as UnitStatus] ?? STATUS_COLOR.disponivel,
-                          boxShadow: isOpen
-                            ? `0 0 12px ${STATUS_COLOR[unit.status as UnitStatus]}88`
-                            : undefined,
-                        }}
-                      >
-                        {unit.number}
-                        {saving && isOpen && (
-                          <span className="absolute inset-0 flex items-center justify-center bg-black/40 rounded-lg">
-                            <span className="w-3 h-3 border border-white border-t-transparent rounded-full animate-spin" />
-                          </span>
-                        )}
-                      </button>
-                    </td>
-                  );
-                })}
-              </tr>
+            {filtered.map((unit) => (
+              <UnitRow key={unit.id} unit={unit} isAdmin={isAdmin} onUpdateUnit={onUpdateUnit} />
             ))}
           </tbody>
         </table>
+        {filtered.length === 0 && (
+          <p className="text-center text-xs text-gray-600 py-8">Nenhuma unidade encontrada</p>
+        )}
       </div>
 
       {isAdmin && (
         <p className="text-[11px] text-gray-600 text-center">
-          Clique em qualquer unidade para alterar o status
+          Clique no status para alterar · Clique nas pendências para expandir o checklist
         </p>
       )}
     </div>
