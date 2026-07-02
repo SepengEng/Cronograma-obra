@@ -248,6 +248,7 @@ export default function ApartmentModal({
                   className="bg-black/40 border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-[#2AB9B0] disabled:text-gray-400"
                 >
                   <option value="">—</option>
+                  <option value="EM ABERTO">EM ABERTO</option>
                   <option value="FINANCIADO">FINANCIADO</option>
                   <option value="QUITADO">QUITADO</option>
                   <option value="ALIENAÇÃO FIDUCIÁRIA">ALIENAÇÃO FIDUCIÁRIA</option>
