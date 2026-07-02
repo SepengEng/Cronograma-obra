@@ -3,8 +3,9 @@
 import dynamic from "next/dynamic";
 import { useState, useRef, useEffect } from "react";
 import { createPortal } from "react-dom";
-import type { Unit, UnitStatus, PendenciaItem } from "./unitTypes";
+import type { Unit, UnitStatus, UnitPatch, PendenciaItem } from "./unitTypes";
 import { STATUS_COLOR, STATUS_LABEL, STATUS_EMOJI, ALL_STATUSES } from "./unitTypes";
+import ApartmentModal from "./ApartmentModal";
 
 const Building3D = dynamic(() => import("./Building3D"), {
   ssr: false,
@@ -84,10 +85,12 @@ function UnitRow({
   unit,
   isAdmin,
   onUpdateUnit,
+  onOpenFicha,
 }: {
   unit: Unit;
   isAdmin: boolean;
   onUpdateUnit: (id: string, status: UnitStatus, notes?: string, extras?: { responsavel?: string; pendencias?: string }) => Promise<void>;
+  onOpenFicha: (id: string) => void;
 }) {
   const [expanded, setExpanded] = useState(() => unit.status === "pendencia");
   const [openStatus, setOpenStatus] = useState(false);
@@ -137,15 +140,22 @@ function UnitRow({
           ? "hover:bg-[#EAB308]/[0.04] bg-[#EAB308]/[0.02]"
           : "hover:bg-white/[0.02]"
       }`}>
-        {/* Unidade */}
+        {/* Unidade — clique abre a ficha */}
         <td className="px-4 py-3">
-          <div className="flex items-center gap-2">
+          <button
+            onClick={() => onOpenFicha(unit.id)}
+            className="flex items-center gap-2 group/ficha"
+            title="Abrir ficha completa"
+          >
             <div
               className="w-2 h-2 rounded-full flex-shrink-0"
               style={{ backgroundColor: STATUS_COLOR[unit.status as UnitStatus] }}
             />
-            <span className="text-sm font-bold text-white">{unit.number}</span>
-          </div>
+            <span className="text-sm font-bold text-white group-hover/ficha:text-[#2AB9B0] transition-colors underline decoration-transparent group-hover/ficha:decoration-[#2AB9B0]/50 underline-offset-2">
+              {unit.number}
+            </span>
+            <span className="opacity-0 group-hover/ficha:opacity-100 text-[10px] text-[#2AB9B0] transition-opacity">📁</span>
+          </button>
         </td>
 
         {/* Andar */}
@@ -200,7 +210,7 @@ function UnitRow({
               onClick={() => isAdmin && setEditingResp(true)}
               className={`text-xs text-left transition-colors ${unit.responsavel ? "text-gray-300" : "text-gray-600"} ${isAdmin ? "hover:text-white" : "cursor-default"}`}
             >
-              {unit.responsavel ?? (isAdmin ? "+ Responsável" : "—")}
+              {unit.responsavel ?? (isAdmin ? "+ Proprietário" : "—")}
             </button>
           )}
         </td>
@@ -262,10 +272,12 @@ function GridView({
   units,
   isAdmin,
   onUpdateUnit,
+  onOpenFicha,
 }: {
   units: Unit[];
   isAdmin: boolean;
   onUpdateUnit: (id: string, status: UnitStatus, notes?: string, extras?: { responsavel?: string; pendencias?: string }) => Promise<void>;
+  onOpenFicha: (id: string) => void;
 }) {
   const [filterStatus, setFilterStatus] = useState<UnitStatus | "all">("all");
   const [search, setSearch] = useState("");
@@ -318,13 +330,13 @@ function GridView({
               <th className="px-4 py-3 text-[10px] font-bold text-gray-500 uppercase tracking-wider text-left">Unidade</th>
               <th className="px-4 py-3 text-[10px] font-bold text-gray-500 uppercase tracking-wider text-left">Andar</th>
               <th className="px-4 py-3 text-[10px] font-bold text-gray-500 uppercase tracking-wider text-left">Status</th>
-              <th className="px-4 py-3 text-[10px] font-bold text-gray-500 uppercase tracking-wider text-left">Responsável</th>
+              <th className="px-4 py-3 text-[10px] font-bold text-gray-500 uppercase tracking-wider text-left">Proprietário</th>
               <th className="px-4 py-3 text-[10px] font-bold text-gray-500 uppercase tracking-wider text-left">Pendências</th>
             </tr>
           </thead>
           <tbody>
             {filtered.map((unit) => (
-              <UnitRow key={unit.id} unit={unit} isAdmin={isAdmin} onUpdateUnit={onUpdateUnit} />
+              <UnitRow key={unit.id} unit={unit} isAdmin={isAdmin} onUpdateUnit={onUpdateUnit} onOpenFicha={onOpenFicha} />
             ))}
           </tbody>
         </table>
@@ -462,13 +474,16 @@ export default function BuildingView({
   units,
   isAdmin,
   onUpdateUnit,
+  onPatch,
 }: {
   units: Unit[];
   isAdmin: boolean;
   onUpdateUnit: (id: string, status: UnitStatus, notes?: string, extras?: { responsavel?: string; pendencias?: string }) => Promise<void>;
+  onPatch: (id: string, patch: UnitPatch) => Promise<void>;
 }) {
   const [viewMode, setViewMode] = useState<"3d" | "grid">("3d");
   const [selectedUnit, setSelectedUnit] = useState<Unit | null>(null);
+  const [fichaUnitId, setFichaUnitId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [editNotes, setEditNotes] = useState("");
   const [showNotes, setShowNotes] = useState(false);
@@ -573,8 +588,16 @@ export default function BuildingView({
 
       {/* ── Grid view ── */}
       {viewMode === "grid" && (
-        <GridView units={units} isAdmin={isAdmin} onUpdateUnit={onUpdateUnit} />
+        <GridView units={units} isAdmin={isAdmin} onUpdateUnit={onUpdateUnit} onOpenFicha={setFichaUnitId} />
       )}
+
+      {/* ── Ficha completa do apartamento ── */}
+      {fichaUnitId && (() => {
+        const fu = units.find((u) => u.id === fichaUnitId);
+        return fu ? (
+          <ApartmentModal unit={fu} isAdmin={isAdmin} onPatch={onPatch} onClose={() => setFichaUnitId(null)} />
+        ) : null;
+      })()}
 
       {/* ── 3D view ── */}
       {viewMode === "3d" && (
@@ -601,10 +624,19 @@ export default function BuildingView({
                     Unidade
                   </p>
                   <p className="text-3xl font-black text-white">{syncedSelected.number}</p>
+                  {syncedSelected.responsavel && (
+                    <p className="text-xs text-gray-300 mt-0.5 truncate">👤 {syncedSelected.responsavel}</p>
+                  )}
                   <p className="text-xs text-gray-500 mt-0.5">{syncedSelected.tower}</p>
                   <p className="text-xs text-gray-500">
                     {syncedSelected.floor}º andar · Posição {syncedSelected.position}
                   </p>
+                  <button
+                    onClick={() => setFichaUnitId(syncedSelected.id)}
+                    className="mt-3 w-full py-2 rounded-xl bg-[#2AB9B0] hover:bg-[#1EA59D] text-white text-xs font-bold transition-all"
+                  >
+                    📁 Ver ficha completa
+                  </button>
                 </div>
 
                 {/* Pendências checklist */}

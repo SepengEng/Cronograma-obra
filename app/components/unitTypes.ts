@@ -12,6 +12,24 @@ export type PendenciaItem = {
   done: boolean;
 };
 
+export type PosObraItem = {
+  id: string;
+  titulo: string;
+  descricao: string;
+  status: "aberto" | "em_andamento" | "atendido" | "aceito";
+  resposta: string;
+  aceito: boolean;
+  createdAt: string;
+};
+
+export type EntregaChaves = {
+  docs: PendenciaItem[];
+  dataEntrega: string;
+  assinaturaNome: string;
+  assinaturaData: string;
+  assinaturaImg: string; // dataURL do canvas
+};
+
 export type Unit = {
   id: string;
   number: string;
@@ -22,7 +40,50 @@ export type Unit = {
   notes: string | null;
   responsavel: string | null;
   pendencias: string | null; // JSON: PendenciaItem[]
+
+  // Proprietário
+  email: string | null;
+  telefone: string | null;
+  cpf: string | null;
+
+  // Financiamento
+  situacao: string | null;
+  valorPago: number | null;
+  saldoDevedor: number | null;
+
+  // Contrato
+  contratoUrl: string | null;
+  contratoNotes: string | null;
+
+  // Checklists detalhados (JSON: PendenciaItem[])
+  previstoria: string | null;
+  vistoriaCheck: string | null;
+
+  // Entrega de chaves (JSON: EntregaChaves)
+  entregaChaves: string | null;
+
+  // Pós-obra (JSON: PosObraItem[])
+  posObra: string | null;
 };
+
+export type UnitPatch = Partial<{
+  status: UnitStatus;
+  notes: string;
+  responsavel: string;
+  pendencias: string;
+  email: string;
+  telefone: string;
+  cpf: string;
+  situacao: string;
+  valorPago: number | string;
+  saldoDevedor: number | string;
+  contratoUrl: string;
+  contratoNotes: string;
+  previstoria: string;
+  vistoriaCheck: string;
+  entregaChaves: string;
+  posObra: string;
+}>;
 
 export const STATUS_COLOR: Record<UnitStatus, string> = {
   disponivel:   "#22C55E",  // verde

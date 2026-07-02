@@ -38,6 +38,31 @@ model Unit {
   notes       String?
   responsavel String?
   pendencias  String?  // JSON: [{id,text,done}]
+
+  // Proprietário
+  email        String?
+  telefone     String?
+  cpf          String?
+
+  // Financiamento
+  situacao     String?  // FINANCIADO | QUITADO | ALIENAÇÃO FIDUCIÁRIA | QUITAR À VISTA
+  valorPago    Float?
+  saldoDevedor Float?
+
+  // Contrato
+  contratoUrl   String?
+  contratoNotes String?
+
+  // Checklists detalhados (JSON: [{id,text,done}])
+  previstoria   String?
+  vistoriaCheck String?
+
+  // Entrega de chaves (JSON: {docs:[{id,text,done}], dataEntrega, assinaturaNome, assinaturaData, assinaturaImg})
+  entregaChaves String?
+
+  // Pós-obra (JSON: [{id,titulo,descricao,status,resposta,aceito,createdAt}])
+  posObra String?
+
   visits      Visit[]
   updatedAt   DateTime @updatedAt
 }

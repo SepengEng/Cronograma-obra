@@ -3,7 +3,7 @@
 import { useEffect, useState, FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import BuildingView from "../components/BuildingView";
-import type { Unit, UnitStatus } from "../components/unitTypes";
+import type { Unit, UnitStatus, UnitPatch } from "../components/unitTypes";
 
 type Role = "admin" | "obra";
 type Session = { role: Role; name: string; id: string };
@@ -161,6 +161,13 @@ export default function CronogramaPage() {
     if (r.ok) { const updated=await r.json(); setUnits(p=>p.map(u=>u.id===updated.id?updated:u)); }
   }
 
+  // Patch genérico (ficha completa do apartamento)
+  async function handleUnitPatch(id:string, patch:UnitPatch) {
+    if (!session) return;
+    const r=await fetch(`/api/units/${id}`,{method:"PATCH",headers:{"Content-Type":"application/json","x-user-id":session.id},body:JSON.stringify(patch)});
+    if (r.ok) { const updated=await r.json(); setUnits(p=>p.map(u=>u.id===updated.id?updated:u)); }
+  }
+
   return (
     <div className="min-h-screen bg-[#0B1929] text-white flex flex-col relative">
       {/* Background image with low opacity */}
@@ -315,7 +322,7 @@ export default function CronogramaPage() {
 
         {/* ── PRÉDIO 3D ── */}
         {view==="predio" && (
-          <BuildingView units={units} isAdmin={isAdmin} onUpdateUnit={handleUnitUpdate}/>
+          <BuildingView units={units} isAdmin={isAdmin} onUpdateUnit={handleUnitUpdate} onPatch={handleUnitPatch}/>
         )}
       </div>
 
