@@ -8,9 +8,6 @@ import type {
 import { STATUS_COLOR, STATUS_LABEL } from "./unitTypes";
 
 /* ─── helpers ─────────────────────────────────────────────────── */
-const brl = (n: number | null) =>
-  n == null ? "—" : n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
-
 function parseList<T>(raw: string | null): T[] {
   if (!raw) return [];
   try { const v = JSON.parse(raw); return Array.isArray(v) ? v : []; } catch { return []; }
@@ -307,20 +304,6 @@ export default function ApartmentModal({
 
           {tab === "financiamento" && (
             <div className="flex flex-col gap-4 max-w-lg">
-              {/* Destaque saldo */}
-              <div className="bg-[#0F1E2E] border border-white/5 rounded-2xl p-5 flex items-center justify-between">
-                <div>
-                  <p className="text-[11px] font-bold text-gray-500 uppercase tracking-wider">Quanto falta</p>
-                  <p className={`text-3xl font-black ${(unit.saldoDevedor ?? 0) > 0 ? "text-[#EAB308]" : "text-[#22C55E]"}`}>
-                    {brl(unit.saldoDevedor)}
-                  </p>
-                </div>
-                {unit.situacao && (
-                  <span className="text-xs font-semibold px-3 py-1.5 rounded-full bg-white/5 border border-white/10 text-gray-300">
-                    {unit.situacao}
-                  </span>
-                )}
-              </div>
               <div className="flex flex-col gap-1.5">
                 <label className="text-[11px] font-bold text-gray-500 uppercase tracking-wider">Situação</label>
                 <select
@@ -336,10 +319,6 @@ export default function ApartmentModal({
                   <option value="QUITAR À VISTA - PÓS HABITE-SE">QUITAR À VISTA - PÓS HABITE-SE</option>
                 </select>
               </div>
-              <Field label="Valor pago (R$)" type="number" prefix="R$" value={unit.valorPago?.toString() ?? ""} isAdmin={isAdmin}
-                onSave={(v) => patch({ valorPago: v })} placeholder="0,00" />
-              <Field label="Saldo devedor / quanto falta (R$)" type="number" prefix="R$" value={unit.saldoDevedor?.toString() ?? ""} isAdmin={isAdmin}
-                onSave={(v) => patch({ saldoDevedor: v })} placeholder="0,00" />
             </div>
           )}
 
