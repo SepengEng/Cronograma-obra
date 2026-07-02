@@ -45,43 +45,103 @@ function StatusPopover({
     return () => document.removeEventListener("mousedown", handle);
   }, [onClose]);
 
-  // Position below & centred on the button that opened this popover
-  const top  = anchorRect.bottom + 6;
-  const left = anchorRect.left + anchorRect.width / 2;
+  // Posiciona abaixo do botão, com clamp horizontal e flip vertical p/ caber na tela
+  const W = 224, H = 340;
+  const vw = typeof window !== "undefined" ? window.innerWidth : 1280;
+  const vh = typeof window !== "undefined" ? window.innerHeight : 800;
+  let left = anchorRect.left + anchorRect.width / 2;
+  left = Math.min(Math.max(left, W / 2 + 8), vw - W / 2 - 8);
+  const below = anchorRect.bottom + 6;
+  const top = below + H > vh ? Math.max(8, anchorRect.top - H - 6) : below;
 
   return createPortal(
     <div
       ref={ref}
-      style={{ position: "fixed", top, left, transform: "translateX(-50%)", zIndex: 9999 }}
-      className="bg-[#0D1B2A] border border-white/10 rounded-2xl shadow-2xl p-2 min-w-[168px]"
+      style={{ position: "fixed", top, left, transform: "translateX(-50%)", zIndex: 9999, width: W }}
+      className="bg-[#0D1B2A] border border-white/10 rounded-2xl shadow-2xl p-1.5"
     >
-      <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider px-2 pb-1.5">
-        Unidade {unit.number}
-      </p>
-      {ALL_STATUSES.map((s) => (
-        <button
-          key={s}
-          disabled={!isAdmin || saving}
-          onClick={() => { onSelect(s); onClose(); }}
-          className={`flex items-center gap-2 w-full px-3 py-1.5 rounded-xl text-xs font-semibold transition-all text-left
-            ${unit.status === s
-              ? "bg-white/10 text-white"
-              : "text-gray-400 hover:bg-white/5 hover:text-white"}
-            ${saving ? "opacity-50 cursor-wait" : ""}
-          `}
-        >
-          <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: STATUS_COLOR[s] }} />
-          <span className="flex-1">{STATUS_LABEL[s]}</span>
-          {unit.status === s && <span className="text-[#2AB9B0] text-[10px]">✓</span>}
-        </button>
-      ))}
+      <div className="px-3 py-2 mb-1 border-b border-white/5">
+        <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Unidade {unit.number}</p>
+        {unit.responsavel && <p className="text-xs text-gray-400 truncate">{unit.responsavel}</p>}
+      </div>
+      {ALL_STATUSES.map((s) => {
+        const cur = unit.status === s;
+        const c = STATUS_COLOR[s];
+        return (
+          <button
+            key={s}
+            disabled={!isAdmin || saving}
+            onClick={() => { onSelect(s); onClose(); }}
+            className={`flex items-center gap-2.5 w-full px-3 py-2 rounded-xl text-sm font-semibold transition-all text-left
+              ${cur ? "" : "hover:bg-white/5"} ${saving ? "opacity-50 cursor-wait" : ""}`}
+            style={cur ? { backgroundColor: c + "22" } : {}}
+          >
+            <span className="text-base leading-none w-5 text-center flex-shrink-0">{STATUS_EMOJI[s]}</span>
+            <span className="flex-1" style={{ color: cur ? c : "#cbd5e1" }}>{STATUS_LABEL[s]}</span>
+            {cur && <span className="text-sm flex-shrink-0" style={{ color: c }}>✓</span>}
+          </button>
+        );
+      })}
     </div>,
     document.body
   );
 }
 
-/* ── Table row with inline checklist expansion ──────────────────── */
-function UnitRow({
+/* ── Controle de status (pílula + popover) ─────────────────────── */
+function StatusControl({
+  unit, isAdmin, onUpdate,
+}: {
+  unit: Unit;
+  isAdmin: boolean;
+  onUpdate: (id: string, status: UnitStatus) => Promise<void>;
+}) {
+  const [open, setOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const btnRef = useRef<HTMLButtonElement>(null);
+  const [rect, setRect] = useState<DOMRect | null>(null);
+  const color = STATUS_COLOR[unit.status];
+
+  const openMenu = () => {
+    if (!isAdmin) return;
+    const r = btnRef.current?.getBoundingClientRect();
+    if (r) { setRect(r); setOpen(true); }
+  };
+  const select = async (s: UnitStatus) => {
+    setSaving(true);
+    await onUpdate(unit.id, s);
+    setSaving(false);
+  };
+
+  return (
+    <>
+      <button
+        ref={btnRef}
+        onClick={openMenu}
+        disabled={saving}
+        className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold border transition-all whitespace-nowrap flex-shrink-0
+          ${isAdmin ? "hover:brightness-125 cursor-pointer" : "cursor-default"} ${saving ? "opacity-60" : ""}`}
+        style={{ backgroundColor: color + "22", borderColor: color + "55", color }}
+      >
+        <span className="text-[10px] leading-none">{STATUS_EMOJI[unit.status]}</span>
+        {STATUS_LABEL[unit.status]}
+        {isAdmin && <span className="opacity-50">▾</span>}
+      </button>
+      {open && rect && (
+        <StatusPopover
+          unit={unit}
+          anchorRect={rect}
+          isAdmin={isAdmin}
+          saving={saving}
+          onSelect={select}
+          onClose={() => setOpen(false)}
+        />
+      )}
+    </>
+  );
+}
+
+/* ── Card de unidade (número + dono + status) ──────────────────── */
+function UnitCard({
   unit,
   isAdmin,
   onUpdateUnit,
@@ -92,178 +152,33 @@ function UnitRow({
   onUpdateUnit: (id: string, status: UnitStatus, notes?: string, extras?: { responsavel?: string; pendencias?: string }) => Promise<void>;
   onOpenFicha: (id: string) => void;
 }) {
-  const [expanded, setExpanded] = useState(() => unit.status === "pendencia");
-  const [openStatus, setOpenStatus] = useState(false);
-  const statusBtnRef = useRef<HTMLButtonElement>(null);
-  const [statusRect, setStatusRect] = useState<DOMRect | null>(null);
-  const [editResp, setEditResp] = useState(unit.responsavel ?? "");
-  const [editingResp, setEditingResp] = useState(false);
-  const [saving, setSaving] = useState(false);
-
-  // sync responsavel when unit changes externally
-  useEffect(() => { setEditResp(unit.responsavel ?? ""); }, [unit.responsavel]);
-
-  const items = parsePendencias(unit.pendencias);
-  const doneCount = items.filter((i) => i.done).length;
-  const total = items.length;
-  const allDone = total > 0 && doneCount === total;
-
-  const handleStatusClick = () => {
-    if (!isAdmin) return;
-    const rect = statusBtnRef.current?.getBoundingClientRect();
-    if (rect) { setStatusRect(rect); setOpenStatus(true); }
-  };
-
-  const handleStatusSelect = async (s: UnitStatus) => {
-    setSaving(true);
-    await onUpdateUnit(unit.id, s);
-    setSaving(false);
-    setOpenStatus(false);
-    if (s === "pendencia") setExpanded(true);
-  };
-
-  const handleRespSave = async () => {
-    setSaving(true);
-    await onUpdateUnit(unit.id, unit.status, undefined, { responsavel: editResp });
-    setSaving(false);
-    setEditingResp(false);
-  };
-
-  const handleSavePendencias = async (items: PendenciaItem[]) => {
-    await onUpdateUnit(unit.id, unit.status, undefined, { pendencias: JSON.stringify(items) });
-  };
-
+  const color = STATUS_COLOR[unit.status];
   return (
-    <>
-      <tr className={`border-b border-white/[0.04] transition-colors ${
-        unit.status === "pendencia"
-          ? "hover:bg-[#EAB308]/[0.04] bg-[#EAB308]/[0.02]"
-          : "hover:bg-white/[0.02]"
-      }`}>
-        {/* Unidade — clique abre a ficha */}
-        <td className="px-4 py-3">
-          <button
-            onClick={() => onOpenFicha(unit.id)}
-            className="flex items-center gap-2 group/ficha"
-            title="Abrir ficha completa"
-          >
-            <div
-              className="w-2 h-2 rounded-full flex-shrink-0"
-              style={{ backgroundColor: STATUS_COLOR[unit.status as UnitStatus] }}
-            />
-            <span className="text-sm font-bold text-white group-hover/ficha:text-[#2AB9B0] transition-colors underline decoration-transparent group-hover/ficha:decoration-[#2AB9B0]/50 underline-offset-2">
-              {unit.number}
-            </span>
-            <span className="opacity-0 group-hover/ficha:opacity-100 text-[10px] text-[#2AB9B0] transition-opacity">📁</span>
-          </button>
-        </td>
-
-        {/* Andar */}
-        <td className="px-4 py-3 text-xs text-gray-400">{unit.floor}º andar</td>
-
-        {/* Status */}
-        <td className="px-4 py-3">
-          <button
-            ref={statusBtnRef}
-            onClick={handleStatusClick}
-            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold border transition-all
-              ${isAdmin ? "hover:brightness-110 cursor-pointer" : "cursor-default"}`}
-            style={{
-              backgroundColor: STATUS_COLOR[unit.status as UnitStatus] + "22",
-              borderColor: STATUS_COLOR[unit.status as UnitStatus] + "55",
-              color: STATUS_COLOR[unit.status as UnitStatus],
-            }}
-          >
-            <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: STATUS_COLOR[unit.status as UnitStatus] }} />
-            {STATUS_LABEL[unit.status as UnitStatus]}
-            {isAdmin && <span className="opacity-50 ml-0.5">▾</span>}
-          </button>
-          {openStatus && statusRect && (
-            <StatusPopover
-              unit={unit}
-              anchorRect={statusRect}
-              isAdmin={isAdmin}
-              saving={saving}
-              onSelect={handleStatusSelect}
-              onClose={() => setOpenStatus(false)}
-            />
-          )}
-        </td>
-
-        {/* Responsável */}
-        <td className="px-4 py-3">
-          {editingResp ? (
-            <div className="flex items-center gap-1.5">
-              <input
-                autoFocus
-                value={editResp}
-                onChange={(e) => setEditResp(e.target.value)}
-                onKeyDown={(e) => { if (e.key === "Enter") handleRespSave(); if (e.key === "Escape") setEditingResp(false); }}
-                className="bg-black/40 border border-white/10 rounded-lg px-2 py-1 text-xs text-white placeholder-gray-600 focus:outline-none focus:ring-1 focus:ring-[#2AB9B0] w-36"
-                placeholder="Nome…"
-              />
-              <button onClick={handleRespSave} disabled={saving} className="text-[#2AB9B0] text-[10px] font-bold px-1.5 py-0.5 rounded bg-[#2AB9B0]/10 hover:bg-[#2AB9B0]/20">✓</button>
-              <button onClick={() => setEditingResp(false)} className="text-gray-500 text-[10px] px-1 py-0.5 rounded hover:text-gray-300">✕</button>
-            </div>
-          ) : (
-            <button
-              onClick={() => isAdmin && setEditingResp(true)}
-              className={`text-xs text-left transition-colors ${unit.responsavel ? "text-gray-300" : "text-gray-600"} ${isAdmin ? "hover:text-white" : "cursor-default"}`}
-            >
-              {unit.responsavel ?? (isAdmin ? "+ Proprietário" : "—")}
-            </button>
-          )}
-        </td>
-
-        {/* Pendências */}
-        <td className="px-4 py-3">
-          <button
-            onClick={() => setExpanded((v) => !v)}
-            className="flex items-center gap-2 group"
-          >
-            {total === 0 ? (
-              <span className={`text-[11px] transition-colors ${
-                unit.status === "pendencia"
-                  ? "text-[#EAB308]/70 group-hover:text-[#EAB308]"
-                  : "text-gray-600 group-hover:text-gray-400"
-              }`}>
-                {unit.status === "pendencia" ? "⚠️ Definir itens" : isAdmin ? "+ Adicionar" : "—"}
-              </span>
-            ) : (
-              <>
-                <div className="flex items-center gap-1">
-                  {/* mini progress bar */}
-                  <div className="w-16 h-1.5 bg-white/10 rounded-full overflow-hidden">
-                    <div
-                      className="h-full rounded-full transition-all"
-                      style={{
-                        width: `${(doneCount / total) * 100}%`,
-                        backgroundColor: allDone ? "#22C55E" : "#EAB308",
-                      }}
-                    />
-                  </div>
-                  <span className="text-[11px] font-semibold" style={{ color: allDone ? "#22C55E" : "#EAB308" }}>
-                    {doneCount}/{total}
-                  </span>
-                </div>
-              </>
-            )}
-            <span className="text-gray-600 group-hover:text-gray-400 text-[11px] transition-colors">
-              {expanded ? "▴" : "▾"}
-            </span>
-          </button>
-        </td>
-      </tr>
-
-      {/* Expanded checklist row */}
-      {expanded && (
-        <tr className="border-b border-white/[0.04]">
-          <td colSpan={5} className="px-6 py-3 bg-[#0A1521]">
-            <PendenciasPanel unit={unit} isAdmin={isAdmin} onSave={handleSavePendencias} />
-          </td>
-        </tr>
-      )}
-    </>
+    <div
+      className="bg-[#0F1E2E] border border-white/5 rounded-xl p-3 flex flex-col gap-2 hover:border-white/15 transition-all"
+      style={{ borderLeft: `3px solid ${color}` }}
+    >
+      <div className="flex items-center justify-between gap-2">
+        <button
+          onClick={() => onOpenFicha(unit.id)}
+          className="flex items-center gap-1.5 group/f min-w-0"
+          title="Abrir ficha completa"
+        >
+          <span className="text-lg font-black text-white group-hover/f:text-[#2AB9B0] transition-colors">{unit.number}</span>
+          <span className="opacity-0 group-hover/f:opacity-100 text-[10px] text-[#2AB9B0] transition-opacity">📁</span>
+        </button>
+        <StatusControl unit={unit} isAdmin={isAdmin} onUpdate={onUpdateUnit} />
+      </div>
+      <button
+        onClick={() => onOpenFicha(unit.id)}
+        className="text-left min-w-0"
+        title={unit.responsavel ?? undefined}
+      >
+        <span className={`text-xs truncate block ${unit.responsavel ? "text-gray-300 hover:text-white" : "text-gray-600"} transition-colors`}>
+          {unit.responsavel ? `👤 ${unit.responsavel}` : (isAdmin ? "+ proprietário" : "—")}
+        </span>
+      </button>
+    </div>
   );
 }
 
@@ -284,17 +199,19 @@ function GridView({
 
   const filtered = units
     .filter((u) => filterStatus === "all" || u.status === filterStatus)
-    .filter((u) => !search || u.number.includes(search) || (u.responsavel ?? "").toLowerCase().includes(search.toLowerCase()))
-    .sort((a, b) => a.floor !== b.floor ? b.floor - a.floor : a.position - b.position);
+    .filter((u) => !search || u.number.includes(search) || (u.responsavel ?? "").toLowerCase().includes(search.toLowerCase()));
+
+  const floors = Array.from(new Set(filtered.map((u) => u.floor))).sort((a, b) => b - a);
+  const unitsOf = (f: number) => filtered.filter((u) => u.floor === f).sort((a, b) => Number(a.number) - Number(b.number));
 
   return (
-    <div className="flex flex-col gap-3">
+    <div className="flex flex-col gap-4">
       {/* Filters */}
       <div className="flex flex-wrap gap-2 items-center">
         <input
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          placeholder="Buscar unidade ou responsável…"
+          placeholder="Buscar unidade ou proprietário…"
           className="bg-[#0F1E2E] border border-white/10 rounded-xl px-3 py-1.5 text-xs text-white placeholder-gray-600 focus:outline-none focus:ring-1 focus:ring-[#2AB9B0] w-52"
         />
         <button
@@ -322,32 +239,28 @@ function GridView({
         })}
       </div>
 
-      {/* Table */}
-      <div className="rounded-2xl border border-white/5 bg-[#0A1521] overflow-hidden">
-        <table className="w-full border-collapse">
-          <thead>
-            <tr className="border-b border-white/5">
-              <th className="px-4 py-3 text-[10px] font-bold text-gray-500 uppercase tracking-wider text-left">Unidade</th>
-              <th className="px-4 py-3 text-[10px] font-bold text-gray-500 uppercase tracking-wider text-left">Andar</th>
-              <th className="px-4 py-3 text-[10px] font-bold text-gray-500 uppercase tracking-wider text-left">Status</th>
-              <th className="px-4 py-3 text-[10px] font-bold text-gray-500 uppercase tracking-wider text-left">Proprietário</th>
-              <th className="px-4 py-3 text-[10px] font-bold text-gray-500 uppercase tracking-wider text-left">Pendências</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filtered.map((unit) => (
-              <UnitRow key={unit.id} unit={unit} isAdmin={isAdmin} onUpdateUnit={onUpdateUnit} onOpenFicha={onOpenFicha} />
+      {/* Andares */}
+      {floors.length === 0 && (
+        <p className="text-center text-xs text-gray-600 py-8">Nenhuma unidade encontrada</p>
+      )}
+      {floors.map((floor) => (
+        <div key={floor} className="flex flex-col gap-2">
+          <div className="flex items-center gap-3">
+            <h3 className="text-sm font-bold text-[#2AB9B0] whitespace-nowrap">{floor}º andar</h3>
+            <div className="flex-1 h-px bg-white/5" />
+            <span className="text-[10px] text-gray-600 whitespace-nowrap">{unitsOf(floor).length} un.</span>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+            {unitsOf(floor).map((unit) => (
+              <UnitCard key={unit.id} unit={unit} isAdmin={isAdmin} onUpdateUnit={onUpdateUnit} onOpenFicha={onOpenFicha} />
             ))}
-          </tbody>
-        </table>
-        {filtered.length === 0 && (
-          <p className="text-center text-xs text-gray-600 py-8">Nenhuma unidade encontrada</p>
-        )}
-      </div>
+          </div>
+        </div>
+      ))}
 
       {isAdmin && (
         <p className="text-[11px] text-gray-600 text-center">
-          Clique no status para alterar · Clique nas pendências para expandir o checklist
+          Clique no número para abrir a ficha · Clique no status para alterar
         </p>
       )}
     </div>
