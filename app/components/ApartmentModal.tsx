@@ -232,10 +232,11 @@ function Field({
 
 /* ─── Modal principal ─────────────────────────────────────────── */
 export default function ApartmentModal({
-  unit, isAdmin, onPatch, onClose,
+  unit, isAdmin, sessionId, onPatch, onClose,
 }: {
   unit: Unit;
   isAdmin: boolean;
+  sessionId: string;
   onPatch: (id: string, patch: UnitPatch) => Promise<void>;
   onClose: () => void;
 }) {
@@ -334,27 +335,7 @@ export default function ApartmentModal({
           )}
 
           {tab === "contrato" && (
-            <div className="flex flex-col gap-4 max-w-lg">
-              <Field label="Link do contrato" value={unit.contratoUrl ?? ""} isAdmin={isAdmin}
-                onSave={(v) => patch({ contratoUrl: v })} placeholder="https://…" />
-              {unit.contratoUrl && (
-                <a href={unit.contratoUrl} target="_blank" rel="noreferrer"
-                  className="inline-flex items-center gap-2 text-sm text-[#2AB9B0] hover:underline">
-                  📄 Abrir contrato
-                </a>
-              )}
-              <div className="flex flex-col gap-1.5">
-                <label className="text-[11px] font-bold text-gray-500 uppercase tracking-wider">Observações do contrato</label>
-                <textarea
-                  defaultValue={unit.contratoNotes ?? ""}
-                  disabled={!isAdmin}
-                  onBlur={(e) => e.target.value !== (unit.contratoNotes ?? "") && patch({ contratoNotes: e.target.value })}
-                  rows={5}
-                  placeholder="Cláusulas, prazos, condições…"
-                  className="bg-black/40 border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-[#2AB9B0] resize-none disabled:text-gray-400"
-                />
-              </div>
-            </div>
+            <ContratoTab unit={unit} isAdmin={isAdmin} sessionId={sessionId} patch={patch} />
           )}
 
           {tab === "previstoria" && (
@@ -392,6 +373,135 @@ export default function ApartmentModal({
       </div>
     </div>,
     document.body
+  );
+}
+
+/* ─── Aba Contrato (link + upload de arquivos + observações) ───── */
+type ContratoFileMeta = { id: string; name: string; mime: string; size: number; createdAt: string };
+
+const fmtSize = (b: number) =>
+  b < 1024 ? `${b} B` : b < 1024 * 1024 ? `${(b / 1024).toFixed(0)} KB` : `${(b / 1024 / 1024).toFixed(1)} MB`;
+
+const fileIcon = (mime: string) =>
+  mime.includes("pdf") ? "📕"
+  : mime.startsWith("image/") ? "🖼️"
+  : mime.includes("word") || mime.includes("document") ? "📘"
+  : mime.includes("sheet") || mime.includes("excel") ? "📗"
+  : "📎";
+
+function ContratoTab({
+  unit, isAdmin, sessionId, patch,
+}: {
+  unit: Unit;
+  isAdmin: boolean;
+  sessionId: string;
+  patch: (p: UnitPatch) => Promise<void>;
+}) {
+  const [files, setFiles] = useState<ContratoFileMeta[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [uploading, setUploading] = useState(false);
+  const [err, setErr] = useState("");
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    let alive = true;
+    setLoading(true);
+    fetch(`/api/units/${unit.id}/files`)
+      .then((r) => r.json())
+      .then((d) => { if (alive) setFiles(Array.isArray(d) ? d : []); })
+      .catch(() => {})
+      .finally(() => { if (alive) setLoading(false); });
+    return () => { alive = false; };
+  }, [unit.id]);
+
+  const doUpload = async (list: FileList | null) => {
+    if (!list || list.length === 0) return;
+    setErr("");
+    for (const file of Array.from(list)) {
+      if (file.size > 4 * 1024 * 1024) { setErr(`"${file.name}" passa de 4 MB`); continue; }
+      setUploading(true);
+      const fd = new FormData();
+      fd.append("file", file);
+      const r = await fetch(`/api/units/${unit.id}/files`, { method: "POST", headers: { "x-user-id": sessionId }, body: fd });
+      if (r.ok) { const rec = await r.json(); setFiles((p) => [rec, ...p]); }
+      else { const e = await r.json().catch(() => ({})); setErr(e.error || "Falha no upload"); }
+      setUploading(false);
+    }
+    if (inputRef.current) inputRef.current.value = "";
+  };
+
+  const remove = async (fid: string) => {
+    const r = await fetch(`/api/files/${fid}`, { method: "DELETE", headers: { "x-user-id": sessionId } });
+    if (r.ok) setFiles((p) => p.filter((f) => f.id !== fid));
+  };
+
+  return (
+    <div className="flex flex-col gap-5 max-w-xl">
+      {/* Link opcional */}
+      <Field label="Link do contrato (opcional)" icon="🔗" value={unit.contratoUrl ?? ""} isAdmin={isAdmin}
+        onSave={(v) => patch({ contratoUrl: v })} placeholder="https://…" />
+      {unit.contratoUrl && (
+        <a href={unit.contratoUrl} target="_blank" rel="noreferrer" className="-mt-3 inline-flex items-center gap-1.5 text-sm text-[#2AB9B0] hover:underline">
+          🔗 Abrir link
+        </a>
+      )}
+
+      {/* Documentos */}
+      <div className="flex flex-col gap-2">
+        <label className="text-[11px] font-bold text-gray-500 uppercase tracking-wider">Documentos anexados</label>
+
+        {isAdmin && (
+          <div
+            onClick={() => inputRef.current?.click()}
+            onDragOver={(e) => e.preventDefault()}
+            onDrop={(e) => { e.preventDefault(); doUpload(e.dataTransfer.files); }}
+            className={`flex flex-col items-center justify-center gap-1 border-2 border-dashed border-white/15 rounded-2xl py-6 cursor-pointer hover:border-[#2AB9B0]/50 hover:bg-[#2AB9B0]/5 transition-all ${uploading ? "opacity-60 pointer-events-none" : ""}`}
+          >
+            <input ref={inputRef} type="file" multiple className="hidden" onChange={(e) => doUpload(e.target.files)} />
+            <span className="text-2xl">{uploading ? "⏳" : "📤"}</span>
+            <span className="text-sm text-gray-300 font-semibold">{uploading ? "Enviando…" : "Clique ou arraste arquivos aqui"}</span>
+            <span className="text-[10px] text-gray-600">PDF, imagens, Word… até 4 MB cada</span>
+          </div>
+        )}
+
+        {err && <p className="text-xs text-red-400">{err}</p>}
+
+        {loading ? (
+          <p className="text-xs text-gray-600">Carregando arquivos…</p>
+        ) : files.length === 0 ? (
+          <p className="text-sm text-gray-600 italic">Nenhum arquivo anexado ainda.</p>
+        ) : (
+          <div className="flex flex-col gap-1.5">
+            {files.map((f) => (
+              <div key={f.id} className="flex items-center gap-3 bg-[#0F1E2E] border border-white/5 rounded-xl px-3 py-2.5 group">
+                <span className="text-lg flex-shrink-0">{fileIcon(f.mime)}</span>
+                <a href={`/api/files/${f.id}`} target="_blank" rel="noreferrer" className="flex-1 min-w-0">
+                  <p className="text-sm text-gray-200 group-hover:text-[#2AB9B0] truncate transition-colors">{f.name}</p>
+                  <p className="text-[10px] text-gray-600">{fmtSize(f.size)} · {new Date(f.createdAt).toLocaleDateString("pt-BR")}</p>
+                </a>
+                <a href={`/api/files/${f.id}`} target="_blank" rel="noreferrer" className="text-sm text-gray-500 hover:text-[#2AB9B0] flex-shrink-0" title="Abrir">↗</a>
+                {isAdmin && (
+                  <button onClick={() => remove(f.id)} className="text-gray-600 hover:text-red-400 text-xs flex-shrink-0" title="Remover">✕</button>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Observações */}
+      <div className="flex flex-col gap-1.5">
+        <label className="text-[11px] font-bold text-gray-500 uppercase tracking-wider">Observações do contrato</label>
+        <textarea
+          defaultValue={unit.contratoNotes ?? ""}
+          disabled={!isAdmin}
+          onBlur={(e) => e.target.value !== (unit.contratoNotes ?? "") && patch({ contratoNotes: e.target.value })}
+          rows={4}
+          placeholder="Cláusulas, prazos, condições…"
+          className="bg-black/30 border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-[#2AB9B0]/25 focus:border-[#2AB9B0]/60 resize-none disabled:text-gray-400"
+        />
+      </div>
+    </div>
   );
 }
 

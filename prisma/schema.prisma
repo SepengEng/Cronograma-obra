@@ -63,6 +63,20 @@ model Unit {
   // Pós-obra (JSON: [{id,titulo,descricao,status,resposta,aceito,createdAt}])
   posObra String?
 
-  visits      Visit[]
-  updatedAt   DateTime @updatedAt
+  visits        Visit[]
+  contratoFiles ContratoFile[]
+  updatedAt     DateTime @updatedAt
+}
+
+model ContratoFile {
+  id        String   @id @default(cuid())
+  unitId    String
+  unit      Unit     @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  name      String
+  mime      String
+  size      Int
+  data      Bytes
+  createdAt DateTime @default(now())
+
+  @@index([unitId])
 }

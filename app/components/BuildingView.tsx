@@ -386,11 +386,13 @@ function PendenciasPanel({
 export default function BuildingView({
   units,
   isAdmin,
+  sessionId,
   onUpdateUnit,
   onPatch,
 }: {
   units: Unit[];
   isAdmin: boolean;
+  sessionId: string;
   onUpdateUnit: (id: string, status: UnitStatus, notes?: string, extras?: { responsavel?: string; pendencias?: string }) => Promise<void>;
   onPatch: (id: string, patch: UnitPatch) => Promise<void>;
 }) {
@@ -508,7 +510,7 @@ export default function BuildingView({
       {fichaUnitId && (() => {
         const fu = units.find((u) => u.id === fichaUnitId);
         return fu ? (
-          <ApartmentModal unit={fu} isAdmin={isAdmin} onPatch={onPatch} onClose={() => setFichaUnitId(null)} />
+          <ApartmentModal unit={fu} isAdmin={isAdmin} sessionId={sessionId} onPatch={onPatch} onClose={() => setFichaUnitId(null)} />
         ) : null;
       })()}
 

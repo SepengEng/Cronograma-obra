@@ -322,7 +322,7 @@ export default function CronogramaPage() {
 
         {/* ── PRÉDIO 3D ── */}
         {view==="predio" && (
-          <BuildingView units={units} isAdmin={isAdmin} onUpdateUnit={handleUnitUpdate} onPatch={handleUnitPatch}/>
+          <BuildingView units={units} isAdmin={isAdmin} sessionId={session?.id ?? ""} onUpdateUnit={handleUnitUpdate} onPatch={handleUnitPatch}/>
         )}
       </div>
 
