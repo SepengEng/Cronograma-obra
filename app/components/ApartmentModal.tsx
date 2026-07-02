@@ -5,7 +5,7 @@ import { createPortal } from "react-dom";
 import type {
   Unit, UnitPatch, PendenciaItem, PosObraItem, EntregaChaves,
 } from "./unitTypes";
-import { STATUS_COLOR, STATUS_LABEL } from "./unitTypes";
+import { STATUS_COLOR, STATUS_LABEL, STATUS_EMOJI } from "./unitTypes";
 
 /* ─── helpers ─────────────────────────────────────────────────── */
 function parseList<T>(raw: string | null): T[] {
@@ -191,7 +191,7 @@ function SignaturePad({
 
 /* ─── Campo de texto editável com Salvar ──────────────────────── */
 function Field({
-  label, value, onSave, isAdmin, type = "text", placeholder, prefix,
+  label, value, onSave, isAdmin, type = "text", placeholder, prefix, icon,
 }: {
   label: string;
   value: string;
@@ -200,6 +200,7 @@ function Field({
   type?: string;
   placeholder?: string;
   prefix?: string;
+  icon?: string;
 }) {
   const [v, setV] = useState(value);
   useEffect(() => { setV(value); }, [value]);
@@ -208,8 +209,9 @@ function Field({
     <div className="flex flex-col gap-1.5">
       <label className="text-[11px] font-bold text-gray-500 uppercase tracking-wider">{label}</label>
       <div className="flex gap-2">
-        <div className="flex-1 flex items-center bg-black/40 border border-white/10 rounded-xl focus-within:ring-2 focus-within:ring-[#2AB9B0] overflow-hidden">
-          {prefix && <span className="pl-3 text-sm text-gray-500">{prefix}</span>}
+        <div className="flex-1 flex items-center bg-black/30 border border-white/10 rounded-xl focus-within:border-[#2AB9B0]/60 focus-within:ring-2 focus-within:ring-[#2AB9B0]/25 transition-all overflow-hidden">
+          {icon && <span className="pl-3 text-base opacity-60 flex-shrink-0 select-none">{icon}</span>}
+          {prefix && <span className="pl-3 text-sm text-gray-500 flex-shrink-0">{prefix}</span>}
           <input
             type={type}
             value={v}
@@ -217,11 +219,11 @@ function Field({
             onChange={(e) => setV(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && changed && onSave(v)}
             placeholder={placeholder}
-            className="flex-1 bg-transparent px-3 py-2.5 text-sm text-white placeholder-gray-600 focus:outline-none disabled:text-gray-400"
+            className="flex-1 bg-transparent px-3 py-2.5 text-sm text-white placeholder-gray-600 focus:outline-none disabled:text-gray-400 min-w-0"
           />
         </div>
         {isAdmin && changed && (
-          <button onClick={() => onSave(v)} className="px-3 rounded-xl bg-[#2AB9B0] text-white text-xs font-bold flex-shrink-0">Salvar</button>
+          <button onClick={() => onSave(v)} className="px-4 rounded-xl bg-[#2AB9B0] hover:bg-[#1EA59D] text-white text-xs font-bold flex-shrink-0 transition-all">Salvar</button>
         )}
       </div>
     </div>
@@ -259,29 +261,33 @@ export default function ApartmentModal({
     <div className="fixed inset-0 z-[100] bg-black/75 backdrop-blur-md flex items-stretch sm:items-center justify-center sm:p-4">
       <div className="bg-[#0D1B2A] w-full sm:max-w-3xl sm:rounded-2xl border border-white/10 shadow-2xl flex flex-col max-h-screen sm:max-h-[92vh] overflow-hidden">
         {/* Header */}
-        <div className="flex items-center gap-4 px-6 py-4 border-b border-white/5 flex-shrink-0">
-          <div className="w-14 h-14 rounded-2xl flex items-center justify-center flex-shrink-0"
+        <div className="relative flex items-center gap-4 px-6 py-4 border-b border-white/5 flex-shrink-0 overflow-hidden">
+          <div className="absolute inset-0 pointer-events-none" style={{ background: `radial-gradient(120% 120% at 0% 50%, ${color}18, transparent 55%)` }} />
+          <div className="relative w-14 h-14 rounded-2xl flex items-center justify-center flex-shrink-0"
             style={{ backgroundColor: color + "22", border: `1px solid ${color}55` }}>
             <span className="text-2xl font-black" style={{ color }}>{unit.number}</span>
           </div>
-          <div className="flex-1 min-w-0">
+          <div className="relative flex-1 min-w-0">
             <p className="text-lg font-bold text-white truncate">{unit.responsavel ?? "Sem proprietário"}</p>
-            <p className="text-xs text-gray-500">
-              {unit.floor}º andar · {unit.tower}
-              <span className="mx-1.5">·</span>
-              <span style={{ color }}>{STATUS_LABEL[unit.status]}</span>
-            </p>
+            <div className="flex items-center gap-2 mt-1 flex-wrap">
+              <span className="text-xs text-gray-500">{unit.floor}º andar · {unit.tower}</span>
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1"
+                style={{ backgroundColor: color + "22", color, border: `1px solid ${color}44` }}>
+                {STATUS_EMOJI[unit.status]} {STATUS_LABEL[unit.status]}
+              </span>
+            </div>
           </div>
-          {saving && <span className="text-xs text-[#2AB9B0] animate-pulse">salvando…</span>}
-          <button onClick={onClose} className="text-gray-500 hover:text-white text-2xl leading-none flex-shrink-0">×</button>
+          {saving && <span className="relative text-xs text-[#2AB9B0] animate-pulse flex-shrink-0">salvando…</span>}
+          <button onClick={onClose}
+            className="relative w-8 h-8 flex items-center justify-center rounded-lg text-gray-500 hover:text-white hover:bg-white/10 text-xl leading-none flex-shrink-0 transition-all">×</button>
         </div>
 
         {/* Tabs */}
-        <div className="flex gap-1 px-3 py-2 border-b border-white/5 overflow-x-auto flex-shrink-0">
+        <div className="flex gap-1 px-3 py-2 border-b border-white/5 overflow-x-auto flex-shrink-0 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {TABS.map((t) => (
             <button key={t.key} onClick={() => setTab(t.key)}
               className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all
-                ${tab === t.key ? "bg-[#2AB9B0] text-white" : "text-gray-500 hover:text-gray-300 hover:bg-white/5"}`}>
+                ${tab === t.key ? "bg-[#2AB9B0] text-white shadow-sm shadow-[#2AB9B0]/30" : "text-gray-500 hover:text-gray-300 hover:bg-white/5"}`}>
               {t.label}
             </button>
           ))}
@@ -290,15 +296,20 @@ export default function ApartmentModal({
         {/* Content */}
         <div className="flex-1 overflow-y-auto p-6">
           {tab === "proprietario" && (
-            <div className="flex flex-col gap-4 max-w-lg">
-              <Field label="Nome do proprietário" value={unit.responsavel ?? ""} isAdmin={isAdmin}
+            <div className="flex flex-col gap-4 max-w-xl">
+              <Field label="Nome do proprietário" icon="👤" value={unit.responsavel ?? ""} isAdmin={isAdmin}
                 onSave={(v) => patch({ responsavel: v })} placeholder="Nome completo" />
-              <Field label="Email" type="email" value={unit.email ?? ""} isAdmin={isAdmin}
+              <Field label="Email" icon="✉️" type="email" value={unit.email ?? ""} isAdmin={isAdmin}
                 onSave={(v) => patch({ email: v })} placeholder="email@exemplo.com" />
-              <Field label="Telefone" value={unit.telefone ?? ""} isAdmin={isAdmin}
-                onSave={(v) => patch({ telefone: v })} placeholder="(00) 00000-0000" />
-              <Field label="CPF" value={unit.cpf ?? ""} isAdmin={isAdmin}
-                onSave={(v) => patch({ cpf: v })} placeholder="000.000.000-00" />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <Field label="Telefone" icon="📱" value={unit.telefone ?? ""} isAdmin={isAdmin}
+                  onSave={(v) => patch({ telefone: v })} placeholder="(00) 00000-0000" />
+                <Field label="CPF" icon="🪪" value={unit.cpf ?? ""} isAdmin={isAdmin}
+                  onSave={(v) => patch({ cpf: v })} placeholder="000.000.000-00" />
+              </div>
+              {!isAdmin && !unit.email && !unit.telefone && !unit.cpf && (
+                <p className="text-xs text-gray-600 italic">Contato ainda não cadastrado.</p>
+              )}
             </div>
           )}
 
