@@ -6,6 +6,7 @@ import type {
   Unit, UnitPatch, PendenciaItem, PosObraItem, EntregaChaves,
 } from "./unitTypes";
 import { STATUS_COLOR, STATUS_LABEL, STATUS_EMOJI } from "./unitTypes";
+import SignaturePad from "./SignaturePad";
 
 /* ─── helpers ─────────────────────────────────────────────────── */
 function parseList<T>(raw: string | null): T[] {
@@ -107,84 +108,6 @@ function Checklist({
             className="px-4 py-2 rounded-xl bg-[#2AB9B0] text-white text-sm font-bold disabled:opacity-40">+ Adicionar</button>
         </div>
       )}
-    </div>
-  );
-}
-
-/* ─── Assinatura em canvas ────────────────────────────────────── */
-function SignaturePad({
-  value, isAdmin, onSave,
-}: {
-  value: string;
-  isAdmin: boolean;
-  onSave: (dataUrl: string) => void;
-}) {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const drawing = useRef(false);
-  const [dirty, setDirty] = useState(false);
-
-  useEffect(() => {
-    const c = canvasRef.current;
-    if (!c) return;
-    const ctx = c.getContext("2d");
-    if (!ctx) return;
-    ctx.clearRect(0, 0, c.width, c.height);
-    if (value) {
-      const img = new Image();
-      img.onload = () => ctx.drawImage(img, 0, 0, c.width, c.height);
-      img.src = value;
-    }
-  }, [value]);
-
-  const pos = (e: React.PointerEvent) => {
-    const c = canvasRef.current!;
-    const r = c.getBoundingClientRect();
-    return { x: (e.clientX - r.left) * (c.width / r.width), y: (e.clientY - r.top) * (c.height / r.height) };
-  };
-  const start = (e: React.PointerEvent) => {
-    if (!isAdmin) return;
-    drawing.current = true;
-    const ctx = canvasRef.current!.getContext("2d")!;
-    const p = pos(e);
-    ctx.beginPath(); ctx.moveTo(p.x, p.y);
-    ctx.lineWidth = 2; ctx.lineCap = "round"; ctx.strokeStyle = "#fff";
-  };
-  const move = (e: React.PointerEvent) => {
-    if (!drawing.current) return;
-    const ctx = canvasRef.current!.getContext("2d")!;
-    const p = pos(e);
-    ctx.lineTo(p.x, p.y); ctx.stroke();
-    setDirty(true);
-  };
-  const end = () => { drawing.current = false; };
-  const clear = () => {
-    const c = canvasRef.current!;
-    c.getContext("2d")!.clearRect(0, 0, c.width, c.height);
-    setDirty(true);
-  };
-  const save = () => { onSave(canvasRef.current!.toDataURL("image/png")); setDirty(false); };
-
-  return (
-    <div className="flex flex-col gap-2">
-      <canvas
-        ref={canvasRef}
-        width={520}
-        height={160}
-        onPointerDown={start}
-        onPointerMove={move}
-        onPointerUp={end}
-        onPointerLeave={end}
-        className={`w-full rounded-xl border border-white/15 bg-black/30 touch-none ${isAdmin ? "cursor-crosshair" : ""}`}
-      />
-      {isAdmin && (
-        <div className="flex gap-2">
-          <button onClick={clear} className="flex-1 py-2 rounded-xl border border-white/10 text-gray-400 text-xs font-semibold hover:bg-white/5">Limpar</button>
-          <button onClick={save} disabled={!dirty} className="flex-1 py-2 rounded-xl bg-[#2AB9B0] text-white text-xs font-bold disabled:opacity-40">Salvar assinatura</button>
-        </div>
-      )}
-      <p className="text-[10px] text-gray-600 text-center">
-        ⚠️ Assinatura provisória (desenho). Integração gov.br será adicionada quando as credenciais estiverem disponíveis.
-      </p>
     </div>
   );
 }
@@ -367,7 +290,7 @@ export default function ApartmentModal({
           )}
 
           {tab === "posobra" && (
-            <PosObraTab unit={unit} isAdmin={isAdmin} patch={patch} />
+            <PosObraTab unit={unit} isAdmin={isAdmin} sessionId={sessionId} patch={patch} />
           )}
         </div>
       </div>
@@ -537,7 +460,7 @@ function EntregaTab({ unit, isAdmin, patch }: { unit: Unit; isAdmin: boolean; pa
           onChange={(e) => update({ assinaturaNome: e.target.value })}
           placeholder="Nome de quem assina"
           className="bg-black/40 border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-[#2AB9B0] disabled:text-gray-400" />
-        <SignaturePad value={data.assinaturaImg} isAdmin={isAdmin}
+        <SignaturePad value={data.assinaturaImg} canEdit={isAdmin}
           onSave={(img) => update({ assinaturaImg: img, assinaturaData: new Date().toISOString() })} />
         {data.assinaturaData && (
           <p className="text-[10px] text-gray-500">Assinado em {new Date(data.assinaturaData).toLocaleString("pt-BR")}</p>
@@ -555,10 +478,11 @@ const POSOBRA_STATUS: Record<PosObraItem["status"], { label: string; color: stri
   aceito:       { label: "Aceito",       color: "#22C55E" },
 };
 
-function PosObraTab({ unit, isAdmin, patch }: { unit: Unit; isAdmin: boolean; patch: (p: UnitPatch) => Promise<void>; }) {
+function PosObraTab({ unit, isAdmin, sessionId, patch }: { unit: Unit; isAdmin: boolean; sessionId: string; patch: (p: UnitPatch) => Promise<void>; }) {
   const items = parseList<PosObraItem>(unit.posObra);
   const [titulo, setTitulo] = useState("");
   const [descricao, setDescricao] = useState("");
+  const [linkCopied, setLinkCopied] = useState(false);
 
   const save = (next: PosObraItem[]) => patch({ posObra: JSON.stringify(next) });
 
@@ -567,8 +491,19 @@ function PosObraTab({ unit, isAdmin, patch }: { unit: Unit; isAdmin: boolean; pa
     save([...items, {
       id: uid(), titulo: titulo.trim(), descricao: descricao.trim(),
       status: "aberto", resposta: "", aceito: false, createdAt: new Date().toISOString(),
+      origem: "admin",
     }]);
     setTitulo(""); setDescricao("");
+  };
+
+  const copyPortalLink = async () => {
+    const r = await fetch(`/api/units/${unit.id}/portal`, { method: "POST", headers: { "x-user-id": sessionId } });
+    if (!r.ok) return;
+    const { token } = await r.json();
+    const url = `${window.location.origin}/portal/${token}`;
+    try { await navigator.clipboard.writeText(url); } catch { /* área de transferência indisponível */ }
+    setLinkCopied(true);
+    setTimeout(() => setLinkCopied(false), 2500);
   };
   const patchItem = (id: string, p: Partial<PosObraItem>) =>
     save(items.map((it) => it.id === id ? { ...it, ...p } : it));
@@ -580,9 +515,12 @@ function PosObraTab({ unit, isAdmin, patch }: { unit: Unit; isAdmin: boolean; pa
         <p className="text-sm text-gray-400">
           Pedidos de revisão / manutenção pós-obra e as respostas da empresa.
         </p>
-        <span className="text-[10px] text-gray-600 text-right flex-shrink-0 max-w-[180px]">
-          Portal / email do proprietário: em breve
-        </span>
+        {isAdmin && (
+          <button onClick={copyPortalLink}
+            className="flex-shrink-0 text-[11px] font-semibold px-3 py-1.5 rounded-xl bg-white/5 border border-white/10 text-gray-300 hover:bg-white/10 hover:text-white transition-all whitespace-nowrap">
+            {linkCopied ? "✓ Link copiado!" : "🔗 Copiar link do portal"}
+          </button>
+        )}
       </div>
 
       {/* Novo pedido */}
@@ -605,7 +543,12 @@ function PosObraTab({ unit, isAdmin, patch }: { unit: Unit; isAdmin: boolean; pa
           <div key={it.id} className="bg-[#0F1E2E] border border-white/5 rounded-2xl p-4 flex flex-col gap-3">
             <div className="flex items-start gap-3">
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-bold text-white">{it.titulo}</p>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <p className="text-sm font-bold text-white">{it.titulo}</p>
+                  {it.origem === "portal" && (
+                    <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-[#2AB9B0]/15 text-[#2AB9B0] border border-[#2AB9B0]/30">👤 do proprietário</span>
+                  )}
+                </div>
                 {it.descricao && <p className="text-xs text-gray-400 mt-0.5">{it.descricao}</p>}
                 <p className="text-[10px] text-gray-600 mt-1">{new Date(it.createdAt).toLocaleDateString("pt-BR")}</p>
               </div>
@@ -646,6 +589,15 @@ function PosObraTab({ unit, isAdmin, patch }: { unit: Unit; isAdmin: boolean; pa
                     {POSOBRA_STATUS[s].label}
                   </button>
                 ))}
+              </div>
+            )}
+
+            {/* Assinatura da aceitação */}
+            {it.assinaturaImg && (
+              <div className="flex items-center gap-3 bg-[#22C55E]/[0.07] border border-[#22C55E]/20 rounded-xl px-3 py-2">
+                <span className="text-[#22C55E] text-xs font-bold flex-shrink-0">✔ Aceito</span>
+                {it.assinaturaData && <span className="text-[10px] text-gray-500">{new Date(it.assinaturaData).toLocaleString("pt-BR")}</span>}
+                <img src={it.assinaturaImg} alt="assinatura" className="h-8 ml-auto rounded bg-black/30 border border-white/10" />
               </div>
             )}
           </div>

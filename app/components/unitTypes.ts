@@ -20,6 +20,9 @@ export type PosObraItem = {
   resposta: string;
   aceito: boolean;
   createdAt: string;
+  origem?: "admin" | "portal";   // quem abriu o pedido
+  assinaturaImg?: string;        // assinatura da aceitação (dataURL)
+  assinaturaData?: string;       // quando foi aceito/assinado
 };
 
 export type EntregaChaves = {
@@ -64,6 +67,9 @@ export type Unit = {
 
   // Pós-obra (JSON: PosObraItem[])
   posObra: string | null;
+
+  // Portal do proprietário (token do link único)
+  portalToken: string | null;
 };
 
 export type UnitPatch = Partial<{
