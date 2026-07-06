@@ -24,8 +24,7 @@ const TABS = [
   { key: "proprietario", label: "👤 Proprietário" },
   { key: "financiamento", label: "💰 Financiamento" },
   { key: "contrato", label: "📄 Contrato" },
-  { key: "previstoria", label: "📋 Previstoria" },
-  { key: "vistoria", label: "🔍 Vistoria" },
+
   { key: "entrega", label: "🔑 Entrega de chaves" },
   { key: "posobra", label: "🔧 Pós-obra" },
 ] as const;
@@ -262,29 +261,6 @@ export default function ApartmentModal({
             <ContratoTab unit={unit} isAdmin={isAdmin} sessionId={sessionId} patch={patch} />
           )}
 
-          {tab === "previstoria" && (
-            <div className="max-w-lg">
-              <p className="text-sm text-gray-400 mb-4">Checklist detalhado da previstoria. Cada item vira <span className="text-[#22C55E] font-semibold">verde</span> quando concluído.</p>
-              <Checklist
-                items={parseList<PendenciaItem>(unit.previstoria)}
-                isAdmin={isAdmin}
-                onChange={(items) => patch({ previstoria: JSON.stringify(items) })}
-                emptyLabel="Nenhum item de previstoria ainda"
-              />
-            </div>
-          )}
-
-          {tab === "vistoria" && (
-            <div className="max-w-lg">
-              <p className="text-sm text-gray-400 mb-4">Checklist detalhado da vistoria. Cada item vira <span className="text-[#22C55E] font-semibold">verde</span> quando concluído.</p>
-              <Checklist
-                items={parseList<PendenciaItem>(unit.vistoriaCheck)}
-                isAdmin={isAdmin}
-                onChange={(items) => patch({ vistoriaCheck: JSON.stringify(items) })}
-                emptyLabel="Nenhum item de vistoria ainda"
-              />
-            </div>
-          )}
 
           {tab === "entrega" && (
             <EntregaTab unit={unit} isAdmin={isAdmin} patch={patch} />
