@@ -24,7 +24,7 @@ const TABS = [
   { key: "proprietario", label: "👤 Proprietário" },
   { key: "financiamento", label: "💰 Financiamento" },
   { key: "contrato", label: "📄 Contrato" },
-
+  { key: "vistoria", label: "🔍 Vistoria" },
   { key: "entrega", label: "🔑 Entrega de chaves" },
   { key: "posobra", label: "🔧 Pós-obra" },
 ] as const;
@@ -262,6 +262,10 @@ export default function ApartmentModal({
           )}
 
 
+          {tab === "vistoria" && (
+            <VistoriaTab unit={unit} isAdmin={isAdmin} patch={patch} />
+          )}
+
           {tab === "entrega" && (
             <EntregaTab unit={unit} isAdmin={isAdmin} patch={patch} />
           )}
@@ -399,6 +403,163 @@ function ContratoTab({
           rows={4}
           placeholder="Cláusulas, prazos, condições…"
           className="bg-black/30 border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-[#2AB9B0]/25 focus:border-[#2AB9B0]/60 resize-none disabled:text-gray-400"
+        />
+      </div>
+    </div>
+  );
+}
+
+/* ─── Aba Vistoria (recebimento do documento) ─────────────────── */
+type VistoriaCheck = {
+  status: "pendente" | "recebido_sem_pendencias" | "recebido_com_pendencias";
+  dataRecebimento: string;
+  responsavel: string;
+  pendencias: PendenciaItem[];
+  obs: string;
+};
+
+function parseVistoria(raw: string | null): VistoriaCheck {
+  const base: VistoriaCheck = { status: "pendente", dataRecebimento: "", responsavel: "", pendencias: [], obs: "" };
+  if (!raw) return base;
+  try { return { ...base, ...JSON.parse(raw) }; } catch { return base; }
+}
+
+function VistoriaTab({ unit, isAdmin, patch }: { unit: Unit; isAdmin: boolean; patch: (p: UnitPatch) => Promise<void> }) {
+  const data = parseVistoria(unit.vistoriaCheck);
+  const update = (next: Partial<VistoriaCheck>) =>
+    patch({ vistoriaCheck: JSON.stringify({ ...data, ...next }) });
+
+  const STATUS_OPTS: { key: VistoriaCheck["status"]; label: string; desc: string; color: string }[] = [
+    { key: "pendente",                  label: "Pendente",                   desc: "Documento ainda não entregue ao cliente",    color: "#6B7280" },
+    { key: "recebido_sem_pendencias",   label: "Recebido — sem pendências",  desc: "Cliente recebeu e aceitou sem ressalvas",   color: "#22C55E" },
+    { key: "recebido_com_pendencias",   label: "Recebido — com pendências",  desc: "Cliente recebeu e apontou pendências",      color: "#EAB308" },
+  ];
+
+  const addPendencia = () => {
+    const text = prompt("Descrição da pendência:");
+    if (!text?.trim()) return;
+    update({ pendencias: [...data.pendencias, { id: uid(), text: text.trim(), done: false }] });
+  };
+
+  const togglePendencia = (id: string) =>
+    update({ pendencias: data.pendencias.map((p) => p.id === id ? { ...p, done: !p.done } : p) });
+
+  const removePendencia = (id: string) =>
+    update({ pendencias: data.pendencias.filter((p) => p.id !== id) });
+
+  const doneCount = data.pendencias.filter((p) => p.done).length;
+
+  return (
+    <div className="flex flex-col gap-6 max-w-lg">
+
+      {/* Status de recebimento */}
+      <div>
+        <p className="text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-3">Status do documento</p>
+        <div className="flex flex-col gap-2">
+          {STATUS_OPTS.map((opt) => (
+            <button
+              key={opt.key}
+              disabled={!isAdmin}
+              onClick={() => update({ status: opt.key })}
+              className={`flex items-center gap-3 px-4 py-3 rounded-xl border text-left transition-all
+                ${data.status === opt.key
+                  ? "border-white/20 bg-white/5"
+                  : "border-white/5 hover:border-white/10 hover:bg-white/[0.02]"}
+                ${!isAdmin ? "cursor-default" : "cursor-pointer"}`}
+            >
+              <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: opt.color }} />
+              <div className="flex flex-col min-w-0">
+                <span className="text-sm font-semibold text-white">{opt.label}</span>
+                <span className="text-xs text-gray-500">{opt.desc}</span>
+              </div>
+              {data.status === opt.key && <span className="ml-auto text-[#2AB9B0] text-sm">✓</span>}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Data e responsável */}
+      <div className="grid grid-cols-2 gap-3">
+        <div className="flex flex-col gap-1.5">
+          <label className="text-[11px] font-bold text-gray-500 uppercase tracking-wider">Data de recebimento</label>
+          <input
+            type="date"
+            value={data.dataRecebimento}
+            disabled={!isAdmin}
+            onChange={(e) => update({ dataRecebimento: e.target.value })}
+            className="bg-black/40 border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-[#2AB9B0] disabled:text-gray-400"
+          />
+        </div>
+        <div className="flex flex-col gap-1.5">
+          <label className="text-[11px] font-bold text-gray-500 uppercase tracking-wider">Responsável</label>
+          <input
+            value={data.responsavel}
+            disabled={!isAdmin}
+            onChange={(e) => update({ responsavel: e.target.value })}
+            placeholder="Quem recebeu"
+            className="bg-black/40 border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-[#2AB9B0] disabled:text-gray-400"
+          />
+        </div>
+      </div>
+
+      {/* Pendências apontadas */}
+      <div>
+        <div className="flex items-center justify-between mb-3">
+          <p className="text-[11px] font-bold text-gray-500 uppercase tracking-wider">
+            Pendências apontadas
+            {data.pendencias.length > 0 && (
+              <span className="ml-2 text-[10px] font-semibold px-1.5 py-0.5 rounded-full"
+                style={{ background: doneCount === data.pendencias.length ? "#22C55E22" : "#EAB30822", color: doneCount === data.pendencias.length ? "#22C55E" : "#EAB308" }}>
+                {doneCount}/{data.pendencias.length}
+              </span>
+            )}
+          </p>
+          {isAdmin && (
+            <button onClick={addPendencia} className="text-[11px] text-[#2AB9B0] hover:text-white transition-colors font-semibold">
+              + Adicionar
+            </button>
+          )}
+        </div>
+
+        {data.pendencias.length === 0 ? (
+          <p className="text-xs text-gray-600 italic">
+            {data.status === "recebido_com_pendencias"
+              ? "Adicione as pendências apontadas pelo cliente."
+              : "Nenhuma pendência registrada."}
+          </p>
+        ) : (
+          <div className="flex flex-col gap-2">
+            {data.pendencias.map((p) => (
+              <div key={p.id} className="flex items-center gap-3 group">
+                <button
+                  disabled={!isAdmin}
+                  onClick={() => togglePendencia(p.id)}
+                  className={`w-4 h-4 rounded border flex-shrink-0 flex items-center justify-center transition-all
+                    ${p.done ? "bg-[#22C55E] border-[#22C55E]" : "border-white/20"}
+                    ${isAdmin ? "cursor-pointer" : "cursor-default"}`}
+                >
+                  {p.done && <span className="text-[9px] text-white font-bold">✓</span>}
+                </button>
+                <span className={`text-sm flex-1 ${p.done ? "line-through text-gray-600" : "text-gray-200"}`}>{p.text}</span>
+                {isAdmin && (
+                  <button onClick={() => removePendencia(p.id)} className="opacity-0 group-hover:opacity-100 text-gray-600 hover:text-red-400 text-xs transition-all">✕</button>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Observações */}
+      <div className="flex flex-col gap-1.5">
+        <label className="text-[11px] font-bold text-gray-500 uppercase tracking-wider">Observações</label>
+        <textarea
+          value={data.obs}
+          disabled={!isAdmin}
+          onChange={(e) => update({ obs: e.target.value })}
+          rows={3}
+          placeholder="Anotações sobre a entrega do documento de vistoria…"
+          className="bg-black/40 border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-[#2AB9B0] resize-none disabled:text-gray-400"
         />
       </div>
     </div>
