@@ -161,6 +161,20 @@ export default function CronogramaPage() {
     if (r.ok) { const updated=await r.json(); setUnits(p=>p.map(u=>u.id===updated.id?updated:u)); }
   }
 
+  async function handleCreateVistoria(unitId: string) {
+    if (!session) return;
+    const unit = units.find((u) => u.id === unitId);
+    const r = await fetch("/api/vistorias", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-user-id": session.id },
+      body: JSON.stringify({ unitId, pavimento: unit ? `${unit.floor}º andar` : undefined }),
+    });
+    if (r.ok) {
+      const v = await r.json();
+      router.push(`/vistoria/${v.id}`);
+    }
+  }
+
   // Patch genérico (ficha completa do apartamento)
   async function handleUnitPatch(id:string, patch:UnitPatch) {
     if (!session) return;
@@ -322,7 +336,7 @@ export default function CronogramaPage() {
 
         {/* ── PRÉDIO 3D ── */}
         {view==="predio" && (
-          <BuildingView units={units} isAdmin={isAdmin} sessionId={session?.id ?? ""} onUpdateUnit={handleUnitUpdate} onPatch={handleUnitPatch}/>
+          <BuildingView units={units} isAdmin={isAdmin} sessionId={session?.id ?? ""} onUpdateUnit={handleUnitUpdate} onPatch={handleUnitPatch} onCreateVistoria={handleCreateVistoria}/>
         )}
       </div>
 

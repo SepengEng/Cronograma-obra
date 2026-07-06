@@ -68,7 +68,29 @@ model Unit {
 
   visits        Visit[]
   contratoFiles ContratoFile[]
+  vistorias     Vistoria[]
   updatedAt     DateTime @updatedAt
+}
+
+model Vistoria {
+  id            String    @id @default(cuid())
+  unitId        String
+  unit          Unit      @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  tipo          String    @default("completa")   // "completa" | "habitese"
+  status        String    @default("rascunho")   // "rascunho" | "finalizada"
+  responsavel   String?
+  supervisor    String?
+  pavimento     String?
+  checklist     String?   // JSON por área: {apto:{...}, hall:{...}, escada:{...}, areaTec1:{...}, areaTec2:{...}}
+  observacoes   String?
+  iniciadoPor   String?
+  finalizadoPor String?
+  iniciadoEm    DateTime  @default(now())
+  finalizadoEm  DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([unitId])
 }
 
 model ContratoFile {

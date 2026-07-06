@@ -146,12 +146,15 @@ function UnitCard({
   isAdmin,
   onUpdateUnit,
   onOpenFicha,
+  onCreateVistoria,
 }: {
   unit: Unit;
   isAdmin: boolean;
   onUpdateUnit: (id: string, status: UnitStatus, notes?: string, extras?: { responsavel?: string; pendencias?: string }) => Promise<void>;
   onOpenFicha: (id: string) => void;
+  onCreateVistoria?: (unitId: string) => Promise<void>;
 }) {
+  const [creating, setCreating] = useState(false);
   const color = STATUS_COLOR[unit.status];
   return (
     <div
@@ -178,6 +181,15 @@ function UnitCard({
           {unit.responsavel ? `👤 ${unit.responsavel}` : (isAdmin ? "+ proprietário" : "—")}
         </span>
       </button>
+      {onCreateVistoria && (
+        <button
+          onClick={async () => { setCreating(true); await onCreateVistoria(unit.id); setCreating(false); }}
+          disabled={creating}
+          className="mt-0.5 w-full py-1 rounded-lg border border-[#2AB9B0]/30 text-[#2AB9B0] text-[10px] font-semibold hover:bg-[#2AB9B0]/10 transition-all disabled:opacity-50"
+        >
+          {creating ? "Criando…" : "✓ Nova vistoria"}
+        </button>
+      )}
     </div>
   );
 }
@@ -188,11 +200,13 @@ function GridView({
   isAdmin,
   onUpdateUnit,
   onOpenFicha,
+  onCreateVistoria,
 }: {
   units: Unit[];
   isAdmin: boolean;
   onUpdateUnit: (id: string, status: UnitStatus, notes?: string, extras?: { responsavel?: string; pendencias?: string }) => Promise<void>;
   onOpenFicha: (id: string) => void;
+  onCreateVistoria?: (unitId: string) => Promise<void>;
 }) {
   const [filterStatus, setFilterStatus] = useState<UnitStatus | "all">("all");
   const [search, setSearch] = useState("");
@@ -252,7 +266,7 @@ function GridView({
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
             {unitsOf(floor).map((unit) => (
-              <UnitCard key={unit.id} unit={unit} isAdmin={isAdmin} onUpdateUnit={onUpdateUnit} onOpenFicha={onOpenFicha} />
+              <UnitCard key={unit.id} unit={unit} isAdmin={isAdmin} onUpdateUnit={onUpdateUnit} onOpenFicha={onOpenFicha} onCreateVistoria={onCreateVistoria} />
             ))}
           </div>
         </div>
@@ -389,12 +403,14 @@ export default function BuildingView({
   sessionId,
   onUpdateUnit,
   onPatch,
+  onCreateVistoria,
 }: {
   units: Unit[];
   isAdmin: boolean;
   sessionId: string;
   onUpdateUnit: (id: string, status: UnitStatus, notes?: string, extras?: { responsavel?: string; pendencias?: string }) => Promise<void>;
   onPatch: (id: string, patch: UnitPatch) => Promise<void>;
+  onCreateVistoria?: (unitId: string) => Promise<void>;
 }) {
   const [viewMode, setViewMode] = useState<"3d" | "grid">("3d");
   const [selectedUnit, setSelectedUnit] = useState<Unit | null>(null);
@@ -503,7 +519,7 @@ export default function BuildingView({
 
       {/* ── Grid view ── */}
       {viewMode === "grid" && (
-        <GridView units={units} isAdmin={isAdmin} onUpdateUnit={onUpdateUnit} onOpenFicha={setFichaUnitId} />
+        <GridView units={units} isAdmin={isAdmin} onUpdateUnit={onUpdateUnit} onOpenFicha={setFichaUnitId} onCreateVistoria={onCreateVistoria} />
       )}
 
       {/* ── Ficha completa do apartamento ── */}
