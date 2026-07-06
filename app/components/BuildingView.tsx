@@ -140,6 +140,54 @@ function StatusControl({
   );
 }
 
+/* ── Vistoria badge ─────────────────────────────────────────────── */
+function parseVistoriaCheck(raw: string | null) {
+  if (!raw) return null;
+  try { return JSON.parse(raw) as { status: string; pendencias?: { done: boolean }[]; dataRecebimento?: string }; }
+  catch { return null; }
+}
+
+function VistoriaBadge({ raw, onClick }: { raw: string | null; onClick: () => void }) {
+  const v = parseVistoriaCheck(raw);
+  if (!v || v.status === "pendente") {
+    return (
+      <button onClick={onClick} className="flex items-center gap-1.5 w-full group/v">
+        <div className="w-1.5 h-1.5 rounded-full bg-white/10 flex-shrink-0" />
+        <span className="text-[10px] text-gray-600 group-hover/v:text-gray-400 transition-colors truncate">Doc. vistoria pendente</span>
+      </button>
+    );
+  }
+  if (v.status === "recebido_sem_pendencias") {
+    return (
+      <button onClick={onClick} className="flex items-center gap-1.5 w-full group/v">
+        <div className="w-1.5 h-1.5 rounded-full bg-[#22C55E] flex-shrink-0" />
+        <span className="text-[10px] text-[#22C55E] font-medium truncate">Doc. recebido</span>
+        {v.dataRecebimento && <span className="text-[10px] text-gray-600 ml-auto flex-shrink-0">{new Date(v.dataRecebimento + "T00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })}</span>}
+      </button>
+    );
+  }
+  // com pendencias
+  const pends = v.pendencias ?? [];
+  const done = pends.filter((p) => p.done).length;
+  const total = pends.length;
+  const allDone = total > 0 && done === total;
+  return (
+    <button onClick={onClick} className="flex flex-col gap-1 w-full group/v">
+      <div className="flex items-center gap-1.5">
+        <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: allDone ? "#22C55E" : "#EAB308" }} />
+        <span className="text-[10px] font-medium flex-1 truncate" style={{ color: allDone ? "#22C55E" : "#EAB308" }}>
+          {allDone ? "Pendências resolvidas" : `${done}/${total} pendência${total !== 1 ? "s" : ""} resolvida${done !== 1 ? "s" : ""}`}
+        </span>
+      </div>
+      {total > 0 && (
+        <div className="w-full h-1 bg-white/5 rounded-full overflow-hidden">
+          <div className="h-full rounded-full transition-all" style={{ width: `${(done / total) * 100}%`, backgroundColor: allDone ? "#22C55E" : "#EAB308" }} />
+        </div>
+      )}
+    </button>
+  );
+}
+
 /* ── Card de unidade (número + dono + status) ──────────────────── */
 function UnitCard({
   unit,
@@ -161,6 +209,7 @@ function UnitCard({
       className="bg-[#0F1E2E] border border-white/5 rounded-xl p-3 flex flex-col gap-2 hover:border-white/15 transition-all"
       style={{ borderLeft: `3px solid ${color}` }}
     >
+      {/* Linha 1: número + status */}
       <div className="flex items-center justify-between gap-2">
         <button
           onClick={() => onOpenFicha(unit.id)}
@@ -172,20 +221,25 @@ function UnitCard({
         </button>
         <StatusControl unit={unit} isAdmin={isAdmin} onUpdate={onUpdateUnit} />
       </div>
-      <button
-        onClick={() => onOpenFicha(unit.id)}
-        className="text-left min-w-0"
-        title={unit.responsavel ?? undefined}
-      >
+
+      {/* Linha 2: proprietário */}
+      <button onClick={() => onOpenFicha(unit.id)} className="text-left min-w-0" title={unit.responsavel ?? undefined}>
         <span className={`text-xs truncate block ${unit.responsavel ? "text-gray-300 hover:text-white" : "text-gray-600"} transition-colors`}>
           {unit.responsavel ? `👤 ${unit.responsavel}` : (isAdmin ? "+ proprietário" : "—")}
         </span>
       </button>
+
+      {/* Linha 3: vistoria */}
+      <div className="pt-1.5 border-t border-white/[0.04]">
+        <VistoriaBadge raw={unit.vistoriaCheck} onClick={() => onOpenFicha(unit.id)} />
+      </div>
+
+      {/* Linha 4: botão nova vistoria */}
       {onCreateVistoria && (
         <button
           onClick={async () => { setCreating(true); await onCreateVistoria(unit.id); setCreating(false); }}
           disabled={creating}
-          className="mt-0.5 w-full py-1 rounded-lg border border-[#2AB9B0]/30 text-[#2AB9B0] text-[10px] font-semibold hover:bg-[#2AB9B0]/10 transition-all disabled:opacity-50"
+          className="w-full py-1 rounded-lg border border-[#2AB9B0]/20 text-[#2AB9B0] text-[10px] font-semibold hover:bg-[#2AB9B0]/10 transition-all disabled:opacity-50"
         >
           {creating ? "Criando…" : "✓ Nova vistoria"}
         </button>
