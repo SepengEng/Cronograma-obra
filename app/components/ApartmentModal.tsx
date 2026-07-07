@@ -408,18 +408,51 @@ function ContratoTab({
 }
 
 /* ─── Aba Vistoria (recebimento do documento) ─────────────────── */
+const TERMO_ITENS = [
+  "Pintura de paredes e tetos",
+  "Forros",
+  "Revestimento de paredes",
+  "Revestimento de pisos",
+  "Soleiras e rodapés",
+  "Filetes e caimento nos box's",
+  "Esquadria de alumínio e peitoris",
+  "Vidros",
+  "Portas de madeira (portas e ferragens)",
+  "Instalações elétricas",
+  "Bancadas e cuba",
+  "Pontos hidráulicos e sifões",
+  "Louças e metais",
+  "Comunicação visual",
+] as const;
+
+type TermoItemStatus = "aceito" | "nao_aceito" | "nao_aplica" | null;
+type TermoItem = { status: TermoItemStatus; obs: string };
+type Parecer = "aprovado_sem_ressalva" | "aprovado_com_ressalva" | "pendente_revistoria" | null;
+
 type VistoriaCheck = {
   status: "pendente" | "recebido_sem_pendencias" | "recebido_com_pendencias";
   dataRecebimento: string;
   responsavel: string;
   pendencias: PendenciaItem[];
   obs: string;
+  termoItens: Record<string, TermoItem>;
+  parecer: Parecer;
 };
 
+function emptyTermoItens(): Record<string, TermoItem> {
+  return Object.fromEntries(TERMO_ITENS.map((k) => [k, { status: null, obs: "" }]));
+}
+
 function parseVistoria(raw: string | null): VistoriaCheck {
-  const base: VistoriaCheck = { status: "pendente", dataRecebimento: "", responsavel: "", pendencias: [], obs: "" };
+  const base: VistoriaCheck = {
+    status: "pendente", dataRecebimento: "", responsavel: "",
+    pendencias: [], obs: "", termoItens: emptyTermoItens(), parecer: null,
+  };
   if (!raw) return base;
-  try { return { ...base, ...JSON.parse(raw) }; } catch { return base; }
+  try {
+    const parsed = JSON.parse(raw);
+    return { ...base, ...parsed, termoItens: { ...emptyTermoItens(), ...(parsed.termoItens ?? {}) } };
+  } catch { return base; }
 }
 
 function VistoriaTab({ unit, isAdmin, patch }: { unit: Unit; isAdmin: boolean; patch: (p: UnitPatch) => Promise<void> }) {
@@ -499,6 +532,81 @@ function VistoriaTab({ unit, isAdmin, patch }: { unit: Unit; isAdmin: boolean; p
           />
         </div>
       </div>
+
+      {/* Termo de vistoria — só aparece quando recebido com pendências */}
+      {data.status === "recebido_com_pendencias" && (
+        <div className="flex flex-col gap-3">
+          <p className="text-[11px] font-bold text-gray-500 uppercase tracking-wider">Termo de vistoria</p>
+          <div className="flex flex-col gap-2">
+            {TERMO_ITENS.map((item) => {
+              const ti = data.termoItens[item] ?? { status: null, obs: "" };
+              const setStatus = (s: TermoItemStatus) =>
+                update({ termoItens: { ...data.termoItens, [item]: { ...ti, status: s } } });
+              const setObs = (o: string) =>
+                update({ termoItens: { ...data.termoItens, [item]: { ...ti, obs: o } } });
+              return (
+                <div key={item} className="bg-black/20 border border-white/5 rounded-xl p-3 flex flex-col gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-sm text-white flex-1 min-w-0">{item}</span>
+                    <div className="flex gap-1.5 flex-shrink-0">
+                      {([
+                        { key: "aceito",     label: "Aceito",        color: "#22C55E" },
+                        { key: "nao_aceito", label: "Não Aceito",    color: "#EF4444" },
+                        { key: "nao_aplica", label: "N/A",           color: "#6B7280" },
+                      ] as { key: TermoItemStatus; label: string; color: string }[]).map((opt) => (
+                        <button
+                          key={opt.key}
+                          disabled={!isAdmin}
+                          onClick={() => setStatus(ti.status === opt.key ? null : opt.key)}
+                          className="text-[10px] font-semibold px-2 py-1 rounded-lg border transition-all disabled:cursor-default"
+                          style={ti.status === opt.key
+                            ? { backgroundColor: opt.color + "22", borderColor: opt.color + "66", color: opt.color }
+                            : { borderColor: "rgba(255,255,255,0.08)", color: "#6B7280" }}
+                        >
+                          {opt.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  {(ti.status === "nao_aceito" || ti.obs) && (
+                    <input
+                      value={ti.obs}
+                      disabled={!isAdmin}
+                      onChange={(e) => setObs(e.target.value)}
+                      placeholder="Observação…"
+                      className="bg-black/40 border border-white/10 rounded-lg px-2.5 py-1.5 text-xs text-white placeholder-gray-600 focus:outline-none focus:ring-1 focus:ring-[#2AB9B0] disabled:text-gray-400"
+                    />
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Parecer final */}
+          <div className="flex flex-col gap-2 pt-1">
+            <p className="text-[11px] font-bold text-gray-500 uppercase tracking-wider">Parecer do cliente</p>
+            {([
+              { key: "aprovado_sem_ressalva",  label: "Unidade aprovada e aceita sem ressalva",                         color: "#22C55E" },
+              { key: "aprovado_com_ressalva",  label: "Aprovada com ressalva — vício aparente a ser reparado",          color: "#EAB308" },
+              { key: "pendente_revistoria",    label: "Itens pendentes — agendar revistoria",                           color: "#EF4444" },
+            ] as { key: Parecer; label: string; color: string }[]).map((opt) => (
+              <button
+                key={opt.key as string}
+                disabled={!isAdmin}
+                onClick={() => update({ parecer: data.parecer === opt.key ? null : opt.key })}
+                className="flex items-center gap-3 px-3 py-2.5 rounded-xl border text-left transition-all disabled:cursor-default"
+                style={data.parecer === opt.key
+                  ? { backgroundColor: opt.color + "15", borderColor: opt.color + "44" }
+                  : { borderColor: "rgba(255,255,255,0.06)" }}
+              >
+                <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: opt.color }} />
+                <span className="text-xs text-white">{opt.label}</span>
+                {data.parecer === opt.key && <span className="ml-auto text-[#2AB9B0] text-xs">✓</span>}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Pendências apontadas */}
       <div>
