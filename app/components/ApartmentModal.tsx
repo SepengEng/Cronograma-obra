@@ -634,21 +634,18 @@ function PosObraTab({ unit, isAdmin, sessionId, patch }: { unit: Unit; isAdmin: 
   const [titulo, setTitulo] = useState("");
   const [descricao, setDescricao] = useState("");
   const [linkCopied, setLinkCopied] = useState(false);
-  const [sending, setSending] = useState<string | null>(null);
   const [sentIds, setSentIds] = useState<Set<string>>(new Set());
 
   const save = (next: PosObraItem[]) => patch({ posObra: JSON.stringify(next) });
 
   const sendEmail = async (requestId: string) => {
-    setSending(requestId);
+    if (!unit.email) return;
     const r = await fetch(`/api/units/${unit.id}/notify`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ requestId }),
     });
-    setSending(null);
     if (r.ok) setSentIds((s) => new Set([...s, requestId]));
-    else { const d = await r.json(); alert(d.error ?? "Erro ao enviar e-mail"); }
   };
 
   const add = () => {
@@ -730,31 +727,20 @@ function PosObraTab({ unit, isAdmin, sessionId, patch }: { unit: Unit; isAdmin: 
             <div className="flex flex-col gap-1.5 pl-3 border-l-2 border-white/10">
               <div className="flex items-center justify-between gap-2">
                 <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Resposta da empresa</label>
-                {isAdmin && it.resposta?.trim() && (
-                  unit.email ? (
-                    <button
-                      onClick={() => sendEmail(it.id)}
-                      disabled={sending === it.id}
-                      className={`flex items-center gap-1.5 text-[10px] font-semibold px-2.5 py-1 rounded-lg border transition-all ${
-                        sentIds.has(it.id)
-                          ? "border-[#22C55E]/40 text-[#22C55E] bg-[#22C55E]/10"
-                          : "border-[#2AB9B0]/30 text-[#2AB9B0] hover:bg-[#2AB9B0]/10"
-                      } disabled:opacity-50`}
-                    >
-                      {sending === it.id ? "Enviando…" : sentIds.has(it.id) ? "✓ Enviado" : "✉ Enviar por email"}
-                    </button>
-                  ) : (
-                    <span className="text-[10px] text-gray-600 italic">sem e-mail cadastrado</span>
-                  )
+                {isAdmin && sentIds.has(it.id) && (
+                  <span className="text-[10px] text-[#22C55E]">✓ Email enviado</span>
                 )}
               </div>
               {isAdmin ? (
                 <textarea
                   defaultValue={it.resposta}
-                  onBlur={(e) => e.target.value !== it.resposta && patchItem(it.id, {
-                    resposta: e.target.value,
-                    status: e.target.value.trim() && it.status === "aberto" ? "atendido" : it.status,
-                  })}
+                  onBlur={async (e) => {
+                    const nova = e.target.value;
+                    if (nova === it.resposta) return;
+                    const novoStatus = nova.trim() && it.status === "aberto" ? "atendido" : it.status;
+                    patchItem(it.id, { resposta: nova, status: novoStatus });
+                    if (nova.trim()) await sendEmail(it.id);
+                  }}
                   rows={2} placeholder="Escreva a resposta / providência…"
                   className="bg-black/40 border border-white/10 rounded-xl px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-[#2AB9B0] resize-none" />
               ) : (
