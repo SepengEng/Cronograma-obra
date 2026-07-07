@@ -76,7 +76,7 @@ export default function RelatorioVistoriaPage() {
   }
 
   const cats: ChecklistCategory[] = vistoria.tipo === "habitese" ? CHECKLIST_HABITESE : CHECKLIST_COMPLETA;
-  const areas = AREAS.filter((a) => vistoria.tipo === "area_comum" ? a.key !== "apto" : true);
+  const areas = AREAS.filter((a) => vistoria.tipo === "area_comum" ? a.key !== "apto" : a.key === "apto");
   const totalAll = areas.reduce((acc, a) => { const c = countArea(checklist[a.key]); return { done: acc.done + c.done, total: acc.total + c.total }; }, { done: 0, total: 0 });
   const pct = totalAll.total ? Math.round((totalAll.done / totalAll.total) * 100) : 0;
 

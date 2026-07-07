@@ -245,7 +245,7 @@ export default function VistoriaPage() {
 
       {/* Area tabs */}
       <div className="bg-[#0A1521] border-b border-white/5 px-5 flex gap-1 flex-shrink-0 overflow-x-auto">
-        {AREAS.filter((a) => vistoria?.tipo === "area_comum" ? a.key !== "apto" : true).map((area) => {
+        {AREAS.filter((a) => vistoria?.tipo === "area_comum" ? a.key !== "apto" : a.key === "apto").map((area) => {
           const { done, total } = countArea(checklist[area.key]);
           const allDone = total > 0 && done === total;
           return (
