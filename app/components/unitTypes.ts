@@ -28,9 +28,8 @@ export type PosObraItem = {
 export type EntregaChaves = {
   docs: PendenciaItem[];
   dataEntrega: string;
-  assinaturaNome: string;
-  assinaturaData: string;
-  assinaturaImg: string; // dataURL do canvas
+  documentoAssinado: boolean;
+  dataAssinatura: string;
 };
 
 export type Unit = {

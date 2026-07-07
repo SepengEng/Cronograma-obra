@@ -6,15 +6,13 @@ import type {
   Unit, UnitPatch, PendenciaItem, PosObraItem, EntregaChaves,
 } from "./unitTypes";
 import { STATUS_COLOR, STATUS_LABEL, STATUS_EMOJI } from "./unitTypes";
-import SignaturePad from "./SignaturePad";
-
 /* ─── helpers ─────────────────────────────────────────────────── */
 function parseList<T>(raw: string | null): T[] {
   if (!raw) return [];
   try { const v = JSON.parse(raw); return Array.isArray(v) ? v : []; } catch { return []; }
 }
 function parseEntrega(raw: string | null): EntregaChaves {
-  const base: EntregaChaves = { docs: [], dataEntrega: "", assinaturaNome: "", assinaturaData: "", assinaturaImg: "" };
+  const base: EntregaChaves = { docs: [], dataEntrega: "", documentoAssinado: false, dataAssinatura: "" };
   if (!raw) return base;
   try { return { ...base, ...JSON.parse(raw) }; } catch { return base; }
 }
@@ -593,15 +591,30 @@ function EntregaTab({ unit, isAdmin, patch }: { unit: Unit; isAdmin: boolean; pa
       </div>
 
       <div className="flex flex-col gap-2">
-        <label className="text-[11px] font-bold text-gray-500 uppercase tracking-wider">Assinatura na entrega</label>
-        <input value={data.assinaturaNome} disabled={!isAdmin}
-          onChange={(e) => update({ assinaturaNome: e.target.value })}
-          placeholder="Nome de quem assina"
-          className="bg-black/40 border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-[#2AB9B0] disabled:text-gray-400" />
-        <SignaturePad value={data.assinaturaImg} canEdit={isAdmin}
-          onSave={(img) => update({ assinaturaImg: img, assinaturaData: new Date().toISOString() })} />
-        {data.assinaturaData && (
-          <p className="text-[10px] text-gray-500">Assinado em {new Date(data.assinaturaData).toLocaleString("pt-BR")}</p>
+        <label className="text-[11px] font-bold text-gray-500 uppercase tracking-wider">Documento assinado</label>
+        <button
+          disabled={!isAdmin}
+          onClick={() => {
+            const next = !data.documentoAssinado;
+            update({ documentoAssinado: next, dataAssinatura: next ? new Date().toISOString() : "" });
+          }}
+          className={`flex items-center gap-3 px-4 py-3 rounded-xl border transition-all w-fit disabled:cursor-default ${
+            data.documentoAssinado
+              ? "border-[#22C55E]/40 bg-[#22C55E]/10 text-[#22C55E]"
+              : "border-white/10 bg-black/30 text-gray-400 hover:border-white/20"
+          }`}
+        >
+          <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all ${
+            data.documentoAssinado ? "border-[#22C55E] bg-[#22C55E]" : "border-gray-600"
+          }`}>
+            {data.documentoAssinado && <span className="text-white text-[10px] font-bold">✓</span>}
+          </div>
+          <span className="text-sm font-medium">
+            {data.documentoAssinado ? "Documento assinado" : "Marcar como assinado"}
+          </span>
+        </button>
+        {data.dataAssinatura && (
+          <p className="text-[10px] text-gray-500">Assinado em {new Date(data.dataAssinatura).toLocaleString("pt-BR")}</p>
         )}
       </div>
     </div>
