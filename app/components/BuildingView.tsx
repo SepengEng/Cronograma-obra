@@ -265,12 +265,18 @@ function GridView({
   const [filterStatus, setFilterStatus] = useState<UnitStatus | "all">("all");
   const [search, setSearch] = useState("");
 
-  const filtered = units
+  const apts = units.filter((u) => u.floor > 0);
+  const commonAreas = units.filter((u) => u.floor === 0).sort((a, b) => a.position - b.position);
+
+  const filteredApts = apts
     .filter((u) => filterStatus === "all" || u.status === filterStatus)
     .filter((u) => !search || u.number.includes(search) || (u.responsavel ?? "").toLowerCase().includes(search.toLowerCase()));
+  const filteredCA = commonAreas
+    .filter((u) => filterStatus === "all" || u.status === filterStatus)
+    .filter((u) => !search || u.number.toLowerCase().includes(search.toLowerCase()) || (u.responsavel ?? "").toLowerCase().includes(search.toLowerCase()));
 
-  const floors = Array.from(new Set(filtered.map((u) => u.floor))).sort((a, b) => b - a);
-  const unitsOf = (f: number) => filtered.filter((u) => u.floor === f).sort((a, b) => Number(a.number) - Number(b.number));
+  const floors = Array.from(new Set(filteredApts.map((u) => u.floor))).sort((a, b) => b - a);
+  const unitsOf = (f: number) => filteredApts.filter((u) => u.floor === f).sort((a, b) => Number(a.number) - Number(b.number));
 
   return (
     <div className="flex flex-col gap-4">
@@ -287,10 +293,10 @@ function GridView({
           className={`px-3 py-1 rounded-full text-xs font-semibold border transition-all
             ${filterStatus === "all" ? "bg-white/10 border-white/20 text-white" : "border-white/10 text-gray-500 hover:text-gray-300"}`}
         >
-          Todas ({units.length})
+          Todas ({apts.length})
         </button>
         {ALL_STATUSES.map((s) => {
-          const count = units.filter((u) => u.status === s).length;
+          const count = apts.filter((u) => u.status === s).length;
           if (count === 0) return null;
           return (
             <button
@@ -308,7 +314,7 @@ function GridView({
       </div>
 
       {/* Andares */}
-      {floors.length === 0 && (
+      {floors.length === 0 && filteredCA.length === 0 && (
         <p className="text-center text-xs text-gray-600 py-8">Nenhuma unidade encontrada</p>
       )}
       {floors.map((floor) => (
@@ -325,6 +331,22 @@ function GridView({
           </div>
         </div>
       ))}
+
+      {/* Áreas Comuns */}
+      {filteredCA.length > 0 && (
+        <div className="flex flex-col gap-2 pt-2">
+          <div className="flex items-center gap-3">
+            <div className="flex-1 h-px bg-[#2AB9B0]/20" />
+            <h3 className="text-sm font-bold text-[#2AB9B0] whitespace-nowrap">Áreas Comuns</h3>
+            <div className="flex-1 h-px bg-[#2AB9B0]/20" />
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+            {filteredCA.map((unit) => (
+              <UnitCard key={unit.id} unit={unit} isAdmin={isAdmin} onUpdateUnit={onUpdateUnit} onOpenFicha={onOpenFicha} onCreateVistoria={onCreateVistoria} />
+            ))}
+          </div>
+        </div>
+      )}
 
       {isAdmin && (
         <p className="text-[11px] text-gray-600 text-center">
@@ -606,16 +628,18 @@ export default function BuildingView({
                 {/* Unit header */}
                 <div className="bg-[#0F1E2E] border border-white/5 rounded-2xl p-4">
                   <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">
-                    Unidade
+                    {syncedSelected.floor === 0 ? "Área Comum" : "Unidade"}
                   </p>
-                  <p className="text-3xl font-black text-white">{syncedSelected.number}</p>
+                  <p className="text-2xl font-black text-white leading-tight">{syncedSelected.number}</p>
                   {syncedSelected.responsavel && (
                     <p className="text-xs text-gray-300 mt-0.5 truncate">👤 {syncedSelected.responsavel}</p>
                   )}
                   <p className="text-xs text-gray-500 mt-0.5">{syncedSelected.tower}</p>
-                  <p className="text-xs text-gray-500">
-                    {syncedSelected.floor}º andar · Posição {syncedSelected.position}
-                  </p>
+                  {syncedSelected.floor > 0 && (
+                    <p className="text-xs text-gray-500">
+                      {syncedSelected.floor}º andar · Posição {syncedSelected.position}
+                    </p>
+                  )}
                   <button
                     onClick={() => setFichaUnitId(syncedSelected.id)}
                     className="mt-3 w-full py-2 rounded-xl bg-[#2AB9B0] hover:bg-[#1EA59D] text-white text-xs font-bold transition-all"
