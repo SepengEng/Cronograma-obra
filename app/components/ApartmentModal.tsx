@@ -207,7 +207,7 @@ export default function ApartmentModal({
         {/* Tabs */}
         <div className="flex gap-1 px-3 py-2 border-b border-white/5 overflow-x-auto flex-shrink-0 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {TABS.filter((t) => (isSpecialLevel(unit.floor) || isCommonArea(unit))
-            ? !["proprietario", "financiamento", "contrato"].includes(t.key)
+            ? t.key === "vistoria"
             : true
           ).map((t) => (
             <button key={t.key} onClick={() => setTab(t.key)}
@@ -412,6 +412,7 @@ function ContratoTab({
 }
 
 /* ─── Aba Vistoria (recebimento do documento) ─────────────────── */
+// Termo de vistoria — apartamento
 const TERMO_ITENS = [
   "Pintura de paredes e tetos",
   "Forros",
@@ -425,6 +426,24 @@ const TERMO_ITENS = [
   "Instalações elétricas",
   "Bancadas e cuba",
   "Pontos hidráulicos e sifões",
+  "Louças e metais",
+  "Comunicação visual",
+] as const;
+
+// Termo de vistoria — áreas comuns da edificação / pavimento
+const TERMO_ITENS_COMUM = [
+  "Pintura de paredes e tetos",
+  "Forros",
+  "Revestimento de paredes",
+  "Revestimento de pisos",
+  "Soleiras e rodapés",
+  "Esquadria de alumínio e peitoris",
+  "Vidros",
+  "Portas de madeira (portas e ferragens)",
+  "Instalações elétricas",
+  "Bancadas e cuba",
+  "Instalações / pontos hidráulicos",
+  "Instalações sanitárias e de drenagem pluvial",
   "Louças e metais",
   "Comunicação visual",
 ] as const;
@@ -443,39 +462,33 @@ type VistoriaCheckData = {
   parecer: Parecer;
 };
 
-type VistoriaCheck = {
-  apto: VistoriaCheckData;
-  areaComum: VistoriaCheckData;
-};
-
-function emptyTermoItens(): Record<string, TermoItem> {
-  return Object.fromEntries(TERMO_ITENS.map((k) => [k, { status: null, obs: "" }]));
+function emptyTermoItens(items: readonly string[]): Record<string, TermoItem> {
+  return Object.fromEntries(items.map((k) => [k, { status: null, obs: "" }]));
 }
 
-function emptyVistoriaData(): VistoriaCheckData {
-  return { status: "pendente", dataRecebimento: "", responsavel: "", pendencias: [], obs: "", termoItens: emptyTermoItens(), parecer: null };
+function emptyVistoriaData(items: readonly string[]): VistoriaCheckData {
+  return { status: "pendente", dataRecebimento: "", responsavel: "", pendencias: [], obs: "", termoItens: emptyTermoItens(items), parecer: null };
 }
 
-function parseVistoriaData(raw: unknown): VistoriaCheckData {
-  const base = emptyVistoriaData();
+function parseVistoriaData(raw: unknown, items: readonly string[]): VistoriaCheckData {
+  const base = emptyVistoriaData(items);
   if (!raw || typeof raw !== "object") return base;
   const p = raw as Partial<VistoriaCheckData>;
-  return { ...base, ...p, termoItens: { ...emptyTermoItens(), ...(p.termoItens ?? {}) } };
+  return { ...base, ...p, termoItens: { ...emptyTermoItens(items), ...(p.termoItens ?? {}) } };
 }
 
-function parseVistoria(raw: string | null): VistoriaCheck {
-  if (!raw) return { apto: emptyVistoriaData(), areaComum: emptyVistoriaData() };
+// Uma vistoria por unidade. Apartamento usa o termo do apto; áreas comuns e
+// níveis usam o termo de áreas comuns. Compatível com o formato antigo {apto,areaComum}.
+function parseVistoria(raw: string | null, soComum: boolean): VistoriaCheckData {
+  const items = soComum ? TERMO_ITENS_COMUM : TERMO_ITENS;
+  if (!raw) return emptyVistoriaData(items);
   try {
-    const parsed = JSON.parse(raw);
-    // backwards compat: if old format (had status at root), migrate to apto
-    if (parsed.status !== undefined) {
-      return { apto: parseVistoriaData(parsed), areaComum: emptyVistoriaData() };
+    const p = JSON.parse(raw);
+    if (p.apto !== undefined || p.areaComum !== undefined) {
+      return parseVistoriaData(soComum ? p.areaComum : p.apto, items);
     }
-    return {
-      apto:      parseVistoriaData(parsed.apto),
-      areaComum: parseVistoriaData(parsed.areaComum),
-    };
-  } catch { return { apto: emptyVistoriaData(), areaComum: emptyVistoriaData() }; }
+    return parseVistoriaData(p, items);
+  } catch { return emptyVistoriaData(items); }
 }
 
 function TermoItemRow({ label, ti, isAdmin, onStatusChange, onObsSave }: {
@@ -527,12 +540,11 @@ function TermoItemRow({ label, ti, isAdmin, onStatusChange, onObsSave }: {
 }
 
 function VistoriaTab({ unit, isAdmin, patch }: { unit: Unit; isAdmin: boolean; patch: (p: UnitPatch) => Promise<void> }) {
-  const full = parseVistoria(unit.vistoriaCheck);
   const soAreaComum = isSpecialLevel(unit.floor) || isCommonArea(unit);
-  const [tipo, setTipo] = useState<"apto" | "areaComum">(soAreaComum ? "areaComum" : "apto");
-  const data = full[tipo];
+  const termoLista = soAreaComum ? TERMO_ITENS_COMUM : TERMO_ITENS;
+  const data = parseVistoria(unit.vistoriaCheck, soAreaComum);
   const update = (next: Partial<VistoriaCheckData>) =>
-    patch({ vistoriaCheck: JSON.stringify({ ...full, [tipo]: { ...data, ...next } }) });
+    patch({ vistoriaCheck: JSON.stringify({ ...data, ...next }) });
 
   const STATUS_OPTS: { key: VistoriaCheckData["status"]; label: string; desc: string; color: string }[] = [
     { key: "pendente",                  label: "Pendente",                   desc: "Documento ainda não entregue ao cliente",    color: "#6B7280" },
@@ -541,30 +553,10 @@ function VistoriaTab({ unit, isAdmin, patch }: { unit: Unit; isAdmin: boolean; p
   ];
 
   // Pendências derivadas automaticamente dos itens marcados como "Não Aceito"
-  const naoAceitos = TERMO_ITENS.filter((item) => (data.termoItens[item]?.status) === "nao_aceito");
+  const naoAceitos = termoLista.filter((item) => (data.termoItens[item]?.status) === "nao_aceito");
 
   return (
     <div className="flex flex-col gap-6 max-w-lg">
-
-      {/* Seletor de tipo */}
-      <div className={`flex gap-2 ${soAreaComum ? "hidden" : ""}`}>
-        {([
-          { key: "apto",      label: "🏠 Apartamento" },
-          { key: "areaComum", label: "🏢 Área Comum"  },
-        ] as const).map((t) => (
-          <button
-            key={t.key}
-            onClick={() => setTipo(t.key)}
-            className={`flex-1 py-2 rounded-xl text-sm font-semibold border transition-all ${
-              tipo === t.key
-                ? "bg-[#2AB9B0] border-[#2AB9B0] text-white shadow-sm shadow-[#2AB9B0]/30"
-                : "border-white/10 text-gray-400 hover:text-white hover:border-white/20"
-            }`}
-          >
-            {t.label}
-          </button>
-        ))}
-      </div>
 
       {/* Status de recebimento */}
       <div>
@@ -621,7 +613,7 @@ function VistoriaTab({ unit, isAdmin, patch }: { unit: Unit; isAdmin: boolean; p
         <div className="flex flex-col gap-3">
           <p className="text-[11px] font-bold text-gray-500 uppercase tracking-wider">Termo de vistoria</p>
           <div className="flex flex-col gap-2">
-            {TERMO_ITENS.map((item) => {
+            {termoLista.map((item) => {
               const ti = data.termoItens[item] ?? { status: null, obs: "" };
               const setStatus = (s: TermoItemStatus) =>
                 update({ termoItens: { ...data.termoItens, [item]: { ...ti, status: s } } });
