@@ -538,19 +538,8 @@ function VistoriaTab({ unit, isAdmin, patch }: { unit: Unit; isAdmin: boolean; p
     { key: "recebido_com_pendencias",   label: "Recebido — com pendências",  desc: "Cliente recebeu e apontou pendências",      color: "#EAB308" },
   ];
 
-  const addPendencia = () => {
-    const text = prompt("Descrição da pendência:");
-    if (!text?.trim()) return;
-    update({ pendencias: [...data.pendencias, { id: uid(), text: text.trim(), done: false }] });
-  };
-
-  const togglePendencia = (id: string) =>
-    update({ pendencias: data.pendencias.map((p) => p.id === id ? { ...p, done: !p.done } : p) });
-
-  const removePendencia = (id: string) =>
-    update({ pendencias: data.pendencias.filter((p) => p.id !== id) });
-
-  const doneCount = data.pendencias.filter((p) => p.done).length;
+  // Pendências derivadas automaticamente dos itens marcados como "Não Aceito"
+  const naoAceitos = TERMO_ITENS.filter((item) => (data.termoItens[item]?.status) === "nao_aceito");
 
   return (
     <div className="flex flex-col gap-6 max-w-lg">
@@ -673,53 +662,29 @@ function VistoriaTab({ unit, isAdmin, patch }: { unit: Unit; isAdmin: boolean; p
         </div>
       )}
 
-      {/* Pendências apontadas */}
-      <div>
-        <div className="flex items-center justify-between mb-3">
-          <p className="text-[11px] font-bold text-gray-500 uppercase tracking-wider">
-            Pendências apontadas
-            {data.pendencias.length > 0 && (
-              <span className="ml-2 text-[10px] font-semibold px-1.5 py-0.5 rounded-full"
-                style={{ background: doneCount === data.pendencias.length ? "#22C55E22" : "#EAB30822", color: doneCount === data.pendencias.length ? "#22C55E" : "#EAB308" }}>
-                {doneCount}/{data.pendencias.length}
-              </span>
-            )}
+      {/* Pendências derivadas dos "Não Aceito" */}
+      {data.status === "recebido_com_pendencias" && naoAceitos.length > 0 && (
+        <div>
+          <p className="text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-2">
+            Pendências da vistoria
+            <span className="ml-2 text-[10px] font-semibold px-1.5 py-0.5 rounded-full" style={{ background: "#EF444422", color: "#EF4444" }}>
+              {naoAceitos.length}
+            </span>
           </p>
-          {isAdmin && (
-            <button onClick={addPendencia} className="text-[11px] text-[#2AB9B0] hover:text-white transition-colors font-semibold">
-              + Adicionar
-            </button>
-          )}
-        </div>
-
-        {data.pendencias.length === 0 ? (
-          <p className="text-xs text-gray-600 italic">
-            {data.status === "recebido_com_pendencias"
-              ? "Adicione as pendências apontadas pelo cliente."
-              : "Nenhuma pendência registrada."}
-          </p>
-        ) : (
-          <div className="flex flex-col gap-2">
-            {data.pendencias.map((p) => (
-              <div key={p.id} className="flex items-center gap-3 group">
-                <button
-                  disabled={!isAdmin}
-                  onClick={() => togglePendencia(p.id)}
-                  className={`w-4 h-4 rounded border flex-shrink-0 flex items-center justify-center transition-all
-                    ${p.done ? "bg-[#22C55E] border-[#22C55E]" : "border-white/20"}
-                    ${isAdmin ? "cursor-pointer" : "cursor-default"}`}
-                >
-                  {p.done && <span className="text-[9px] text-white font-bold">✓</span>}
-                </button>
-                <span className={`text-sm flex-1 ${p.done ? "line-through text-gray-600" : "text-gray-200"}`}>{p.text}</span>
-                {isAdmin && (
-                  <button onClick={() => removePendencia(p.id)} className="opacity-0 group-hover:opacity-100 text-gray-600 hover:text-red-400 text-xs transition-all">✕</button>
-                )}
+          <div className="flex flex-col gap-1.5">
+            {naoAceitos.map((item) => (
+              <div key={item} className="flex items-start gap-2 bg-[#EF4444]/[0.06] border border-[#EF4444]/15 rounded-lg px-3 py-1.5">
+                <span className="text-[#EF4444] text-xs mt-0.5 flex-shrink-0">●</span>
+                <span className="text-sm text-gray-200">
+                  {item}
+                  {data.termoItens[item]?.obs && <span className="text-gray-500 italic"> — {data.termoItens[item].obs}</span>}
+                </span>
               </div>
             ))}
           </div>
-        )}
-      </div>
+          <p className="text-[10px] text-gray-600 italic mt-1.5">Geradas automaticamente dos itens marcados como &quot;Não Aceito&quot;.</p>
+        </div>
+      )}
 
       {/* Observações */}
       <div className="flex flex-col gap-1.5">

@@ -141,15 +141,40 @@ function StatusControl({
 }
 
 /* ── Vistoria badge ─────────────────────────────────────────────── */
-function parseVistoriaCheck(raw: string | null) {
+type VistoriaSub = {
+  status?: string;
+  dataRecebimento?: string;
+  termoItens?: Record<string, { status: string | null; obs: string }>;
+};
+
+// Deriva pendências (itens "Não Aceito") de uma sub-vistoria
+function naoAceitosDe(sub: VistoriaSub | undefined): string[] {
+  if (!sub?.termoItens) return [];
+  return Object.entries(sub.termoItens)
+    .filter(([, v]) => v?.status === "nao_aceito")
+    .map(([item, v]) => (v.obs?.trim() ? `${item} — ${v.obs.trim()}` : item));
+}
+
+function parseVistoriaCheck(raw: string | null): { subs: VistoriaSub[] } | null {
   if (!raw) return null;
-  try { return JSON.parse(raw) as { status: string; pendencias?: { done: boolean }[]; dataRecebimento?: string }; }
-  catch { return null; }
+  try {
+    const p = JSON.parse(raw);
+    // novo formato { apto, areaComum }
+    if (p.apto || p.areaComum) return { subs: [p.apto, p.areaComum].filter(Boolean) as VistoriaSub[] };
+    // formato antigo (flat)
+    return { subs: [p as VistoriaSub] };
+  } catch { return null; }
 }
 
 function VistoriaBadge({ raw, onClick }: { raw: string | null; onClick: () => void }) {
-  const v = parseVistoriaCheck(raw);
-  if (!v || v.status === "pendente") {
+  const parsed = parseVistoriaCheck(raw);
+  const subs = parsed?.subs ?? [];
+
+  const comPend  = subs.find((s) => s.status === "recebido_com_pendencias");
+  const recebido = subs.find((s) => s.status === "recebido_sem_pendencias");
+
+  // Nenhum documento recebido → pendente
+  if (!comPend && !recebido) {
     return (
       <button onClick={onClick} className="flex items-center gap-1.5 w-full group/v">
         <div className="w-1.5 h-1.5 rounded-full bg-white/10 flex-shrink-0" />
@@ -157,32 +182,37 @@ function VistoriaBadge({ raw, onClick }: { raw: string | null; onClick: () => vo
       </button>
     );
   }
-  if (v.status === "recebido_sem_pendencias") {
+
+  // Recebido, sem pendências apontadas em nenhuma sub
+  if (!comPend && recebido) {
     return (
       <button onClick={onClick} className="flex items-center gap-1.5 w-full group/v">
         <div className="w-1.5 h-1.5 rounded-full bg-[#22C55E] flex-shrink-0" />
         <span className="text-[10px] text-[#22C55E] font-medium truncate">Doc. recebido</span>
-        {v.dataRecebimento && <span className="text-[10px] text-gray-600 ml-auto flex-shrink-0">{new Date(v.dataRecebimento + "T00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })}</span>}
+        {recebido.dataRecebimento && <span className="text-[10px] text-gray-600 ml-auto flex-shrink-0">{new Date(recebido.dataRecebimento + "T00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })}</span>}
       </button>
     );
   }
-  // com pendencias
-  const pends = v.pendencias ?? [];
-  const done = pends.filter((p) => p.done).length;
-  const total = pends.length;
-  const allDone = total > 0 && done === total;
+
+  // Com pendências — deriva dos "Não Aceito" de todas as subs
+  const pends = subs.flatMap((s) => naoAceitosDe(s));
   return (
-    <button onClick={onClick} className="flex flex-col gap-1 w-full group/v">
+    <button onClick={onClick} className="flex flex-col gap-1 w-full text-left group/v">
       <div className="flex items-center gap-1.5">
-        <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: allDone ? "#22C55E" : "#EAB308" }} />
-        <span className="text-[10px] font-medium flex-1 truncate" style={{ color: allDone ? "#22C55E" : "#EAB308" }}>
-          {allDone ? "Pendências resolvidas" : `${done}/${total} pendência${total !== 1 ? "s" : ""} resolvida${done !== 1 ? "s" : ""}`}
+        <div className="w-1.5 h-1.5 rounded-full flex-shrink-0 bg-[#EF4444]" />
+        <span className="text-[10px] font-medium flex-1 truncate text-[#EF4444]">
+          {pends.length > 0
+            ? `${pends.length} pendência${pends.length !== 1 ? "s" : ""} na vistoria`
+            : "Recebido com pendências"}
         </span>
       </div>
-      {total > 0 && (
-        <div className="w-full h-1 bg-white/5 rounded-full overflow-hidden">
-          <div className="h-full rounded-full transition-all" style={{ width: `${(done / total) * 100}%`, backgroundColor: allDone ? "#22C55E" : "#EAB308" }} />
-        </div>
+      {pends.length > 0 && (
+        <ul className="flex flex-col gap-0.5 pl-3">
+          {pends.slice(0, 4).map((p, i) => (
+            <li key={i} className="text-[10px] text-gray-400 truncate leading-tight">• {p}</li>
+          ))}
+          {pends.length > 4 && <li className="text-[10px] text-gray-600">+{pends.length - 4} mais…</li>}
+        </ul>
       )}
     </button>
   );
