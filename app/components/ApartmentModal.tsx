@@ -634,8 +634,22 @@ function PosObraTab({ unit, isAdmin, sessionId, patch }: { unit: Unit; isAdmin: 
   const [titulo, setTitulo] = useState("");
   const [descricao, setDescricao] = useState("");
   const [linkCopied, setLinkCopied] = useState(false);
+  const [sending, setSending] = useState<string | null>(null);
+  const [sentIds, setSentIds] = useState<Set<string>>(new Set());
 
   const save = (next: PosObraItem[]) => patch({ posObra: JSON.stringify(next) });
+
+  const sendEmail = async (requestId: string) => {
+    setSending(requestId);
+    const r = await fetch(`/api/units/${unit.id}/notify`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ requestId }),
+    });
+    setSending(null);
+    if (r.ok) setSentIds((s) => new Set([...s, requestId]));
+    else { const d = await r.json(); alert(d.error ?? "Erro ao enviar e-mail"); }
+  };
 
   const add = () => {
     if (!titulo.trim()) return;
@@ -714,7 +728,26 @@ function PosObraTab({ unit, isAdmin, sessionId, patch }: { unit: Unit; isAdmin: 
 
             {/* Resposta da empresa */}
             <div className="flex flex-col gap-1.5 pl-3 border-l-2 border-white/10">
-              <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Resposta da empresa</label>
+              <div className="flex items-center justify-between gap-2">
+                <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Resposta da empresa</label>
+                {isAdmin && it.resposta?.trim() && (
+                  unit.email ? (
+                    <button
+                      onClick={() => sendEmail(it.id)}
+                      disabled={sending === it.id}
+                      className={`flex items-center gap-1.5 text-[10px] font-semibold px-2.5 py-1 rounded-lg border transition-all ${
+                        sentIds.has(it.id)
+                          ? "border-[#22C55E]/40 text-[#22C55E] bg-[#22C55E]/10"
+                          : "border-[#2AB9B0]/30 text-[#2AB9B0] hover:bg-[#2AB9B0]/10"
+                      } disabled:opacity-50`}
+                    >
+                      {sending === it.id ? "Enviando…" : sentIds.has(it.id) ? "✓ Enviado" : "✉ Enviar por email"}
+                    </button>
+                  ) : (
+                    <span className="text-[10px] text-gray-600 italic">sem e-mail cadastrado</span>
+                  )
+                )}
+              </div>
               {isAdmin ? (
                 <textarea
                   defaultValue={it.resposta}
