@@ -5,7 +5,7 @@ import { createPortal } from "react-dom";
 import type {
   Unit, UnitPatch, PendenciaItem, PosObraItem, EntregaChaves,
 } from "./unitTypes";
-import { STATUS_COLOR, STATUS_LABEL, STATUS_EMOJI } from "./unitTypes";
+import { STATUS_COLOR, STATUS_LABEL, STATUS_EMOJI, isSpecialLevel, isCommonArea } from "./unitTypes";
 /* ─── helpers ─────────────────────────────────────────────────── */
 function parseList<T>(raw: string | null): T[] {
   if (!raw) return [];
@@ -160,7 +160,8 @@ export default function ApartmentModal({
   onPatch: (id: string, patch: UnitPatch) => Promise<void>;
   onClose: () => void;
 }) {
-  const [tab, setTab] = useState<TabKey>("proprietario");
+  const semDono = isSpecialLevel(unit.floor) || isCommonArea(unit);
+  const [tab, setTab] = useState<TabKey>(semDono ? "vistoria" : "proprietario");
   const [saving, setSaving] = useState(false);
 
   const patch = useCallback(async (p: UnitPatch) => {
@@ -205,7 +206,7 @@ export default function ApartmentModal({
 
         {/* Tabs */}
         <div className="flex gap-1 px-3 py-2 border-b border-white/5 overflow-x-auto flex-shrink-0 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-          {TABS.filter((t) => unit.floor === 0
+          {TABS.filter((t) => (isSpecialLevel(unit.floor) || isCommonArea(unit))
             ? !["proprietario", "financiamento", "contrato"].includes(t.key)
             : true
           ).map((t) => (
@@ -527,7 +528,8 @@ function TermoItemRow({ label, ti, isAdmin, onStatusChange, onObsSave }: {
 
 function VistoriaTab({ unit, isAdmin, patch }: { unit: Unit; isAdmin: boolean; patch: (p: UnitPatch) => Promise<void> }) {
   const full = parseVistoria(unit.vistoriaCheck);
-  const [tipo, setTipo] = useState<"apto" | "areaComum">("apto");
+  const soAreaComum = isSpecialLevel(unit.floor) || isCommonArea(unit);
+  const [tipo, setTipo] = useState<"apto" | "areaComum">(soAreaComum ? "areaComum" : "apto");
   const data = full[tipo];
   const update = (next: Partial<VistoriaCheckData>) =>
     patch({ vistoriaCheck: JSON.stringify({ ...full, [tipo]: { ...data, ...next } }) });
@@ -545,7 +547,7 @@ function VistoriaTab({ unit, isAdmin, patch }: { unit: Unit; isAdmin: boolean; p
     <div className="flex flex-col gap-6 max-w-lg">
 
       {/* Seletor de tipo */}
-      <div className="flex gap-2">
+      <div className={`flex gap-2 ${soAreaComum ? "hidden" : ""}`}>
         {([
           { key: "apto",      label: "🏠 Apartamento" },
           { key: "areaComum", label: "🏢 Área Comum"  },

@@ -4,7 +4,7 @@ import dynamic from "next/dynamic";
 import { useState, useRef, useEffect } from "react";
 import { createPortal } from "react-dom";
 import type { Unit, UnitStatus, UnitPatch, PendenciaItem } from "./unitTypes";
-import { STATUS_COLOR, STATUS_LABEL, STATUS_EMOJI, ALL_STATUSES } from "./unitTypes";
+import { STATUS_COLOR, STATUS_LABEL, STATUS_EMOJI, ALL_STATUSES, floorName, isSpecialLevel, isCommonArea } from "./unitTypes";
 import ApartmentModal from "./ApartmentModal";
 
 const Building3D = dynamic(() => import("./Building3D"), {
@@ -232,13 +232,16 @@ function UnitCard({
   onOpenFicha: (id: string) => void;
   onCreateVistoria?: (unitId: string, tipo: "completa" | "area_comum") => Promise<void>;
 }) {
-  const [creating, setCreating] = useState<"completa" | "area_comum" | null>(null);
+  const [creating, setCreating] = useState(false);
   const color = STATUS_COLOR[unit.status];
+  const special = isSpecialLevel(unit.floor);
+  const common = isCommonArea(unit);
+  const vistoriaTipo: "completa" | "area_comum" = special || common ? "area_comum" : "completa";
 
-  const handleCreate = async (tipo: "completa" | "area_comum") => {
-    setCreating(tipo);
-    await onCreateVistoria?.(unit.id, tipo);
-    setCreating(null);
+  const handleCreate = async () => {
+    setCreating(true);
+    await onCreateVistoria?.(unit.id, vistoriaTipo);
+    setCreating(false);
   };
 
   return (
@@ -259,36 +262,29 @@ function UnitCard({
         <StatusControl unit={unit} isAdmin={isAdmin} onUpdate={onUpdateUnit} />
       </div>
 
-      {/* Linha 2: proprietário */}
-      <button onClick={() => onOpenFicha(unit.id)} className="text-left min-w-0" title={unit.responsavel ?? undefined}>
-        <span className={`text-xs truncate block ${unit.responsavel ? "text-gray-300 hover:text-white" : "text-gray-600"} transition-colors`}>
-          {unit.responsavel ? `👤 ${unit.responsavel}` : (isAdmin ? "+ proprietário" : "—")}
-        </span>
-      </button>
+      {/* Linha 2: proprietário (só apartamentos) */}
+      {!special && !common && (
+        <button onClick={() => onOpenFicha(unit.id)} className="text-left min-w-0" title={unit.responsavel ?? undefined}>
+          <span className={`text-xs truncate block ${unit.responsavel ? "text-gray-300 hover:text-white" : "text-gray-600"} transition-colors`}>
+            {unit.responsavel ? `👤 ${unit.responsavel}` : (isAdmin ? "+ proprietário" : "—")}
+          </span>
+        </button>
+      )}
 
       {/* Linha 3: vistoria */}
       <div className="pt-1.5 border-t border-white/[0.04]">
         <VistoriaBadge raw={unit.vistoriaCheck} onClick={() => onOpenFicha(unit.id)} />
       </div>
 
-      {/* Linha 4: botões de vistoria */}
+      {/* Linha 4: botão de vistoria */}
       {onCreateVistoria && (
-        <div className="flex gap-1.5">
-          <button
-            onClick={() => handleCreate("completa")}
-            disabled={!!creating}
-            className="flex-1 py-1 rounded-lg border border-[#2AB9B0]/20 text-[#2AB9B0] text-[10px] font-semibold hover:bg-[#2AB9B0]/10 transition-all disabled:opacity-50"
-          >
-            {creating === "completa" ? "…" : "Pré-vistoria Ap"}
-          </button>
-          <button
-            onClick={() => handleCreate("area_comum")}
-            disabled={!!creating}
-            className="flex-1 py-1 rounded-lg border border-white/10 text-gray-400 text-[10px] font-semibold hover:bg-white/5 hover:text-white transition-all disabled:opacity-50"
-          >
-            {creating === "area_comum" ? "…" : "Área Comum Pav."}
-          </button>
-        </div>
+        <button
+          onClick={handleCreate}
+          disabled={creating}
+          className="w-full py-1 rounded-lg border border-[#2AB9B0]/20 text-[#2AB9B0] text-[10px] font-semibold hover:bg-[#2AB9B0]/10 transition-all disabled:opacity-50"
+        >
+          {creating ? "Criando…" : special || common ? "✓ Nova vistoria (área comum)" : "✓ Nova vistoria"}
+        </button>
       )}
     </div>
   );
@@ -311,18 +307,15 @@ function GridView({
   const [filterStatus, setFilterStatus] = useState<UnitStatus | "all">("all");
   const [search, setSearch] = useState("");
 
-  const apts = units.filter((u) => u.floor > 0);
-  const commonAreas = units.filter((u) => u.floor === 0).sort((a, b) => a.position - b.position);
+  // conta só apartamentos (posições 1-6) para os filtros
+  const aptsOnly = units.filter((u) => !isSpecialLevel(u.floor) && !isCommonArea(u));
 
-  const filteredApts = apts
-    .filter((u) => filterStatus === "all" || u.status === filterStatus)
-    .filter((u) => !search || u.number.includes(search) || (u.responsavel ?? "").toLowerCase().includes(search.toLowerCase()));
-  const filteredCA = commonAreas
+  const filtered = units
     .filter((u) => filterStatus === "all" || u.status === filterStatus)
     .filter((u) => !search || u.number.toLowerCase().includes(search.toLowerCase()) || (u.responsavel ?? "").toLowerCase().includes(search.toLowerCase()));
 
-  const floors = Array.from(new Set(filteredApts.map((u) => u.floor))).sort((a, b) => b - a);
-  const unitsOf = (f: number) => filteredApts.filter((u) => u.floor === f).sort((a, b) => Number(a.number) - Number(b.number));
+  const floors = Array.from(new Set(filtered.map((u) => u.floor))).sort((a, b) => b - a);
+  const unitsOf = (f: number) => filtered.filter((u) => u.floor === f).sort((a, b) => a.position - b.position);
 
   return (
     <div className="flex flex-col gap-4">
@@ -339,10 +332,10 @@ function GridView({
           className={`px-3 py-1 rounded-full text-xs font-semibold border transition-all
             ${filterStatus === "all" ? "bg-white/10 border-white/20 text-white" : "border-white/10 text-gray-500 hover:text-gray-300"}`}
         >
-          Todas ({apts.length})
+          Todas ({aptsOnly.length})
         </button>
         {ALL_STATUSES.map((s) => {
-          const count = apts.filter((u) => u.status === s).length;
+          const count = aptsOnly.filter((u) => u.status === s).length;
           if (count === 0) return null;
           return (
             <button
@@ -360,39 +353,26 @@ function GridView({
       </div>
 
       {/* Andares */}
-      {floors.length === 0 && filteredCA.length === 0 && (
+      {floors.length === 0 && (
         <p className="text-center text-xs text-gray-600 py-8">Nenhuma unidade encontrada</p>
       )}
-      {floors.map((floor) => (
-        <div key={floor} className="flex flex-col gap-2">
-          <div className="flex items-center gap-3">
-            <h3 className="text-sm font-bold text-[#2AB9B0] whitespace-nowrap">{floor}º andar</h3>
-            <div className="flex-1 h-px bg-white/5" />
-            <span className="text-[10px] text-gray-600 whitespace-nowrap">{unitsOf(floor).length} un.</span>
+      {floors.map((floor) => {
+        const special = isSpecialLevel(floor);
+        return (
+          <div key={floor} className="flex flex-col gap-2">
+            <div className="flex items-center gap-3">
+              <h3 className={`text-sm font-bold whitespace-nowrap ${special ? "text-gray-400" : "text-[#2AB9B0]"}`}>{floorName(floor)}</h3>
+              <div className="flex-1 h-px bg-white/5" />
+              <span className="text-[10px] text-gray-600 whitespace-nowrap">{unitsOf(floor).length} un.</span>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+              {unitsOf(floor).map((unit) => (
+                <UnitCard key={unit.id} unit={unit} isAdmin={isAdmin} onUpdateUnit={onUpdateUnit} onOpenFicha={onOpenFicha} onCreateVistoria={onCreateVistoria} />
+              ))}
+            </div>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-            {unitsOf(floor).map((unit) => (
-              <UnitCard key={unit.id} unit={unit} isAdmin={isAdmin} onUpdateUnit={onUpdateUnit} onOpenFicha={onOpenFicha} onCreateVistoria={onCreateVistoria} />
-            ))}
-          </div>
-        </div>
-      ))}
-
-      {/* Áreas Comuns */}
-      {filteredCA.length > 0 && (
-        <div className="flex flex-col gap-2 pt-2">
-          <div className="flex items-center gap-3">
-            <div className="flex-1 h-px bg-[#2AB9B0]/20" />
-            <h3 className="text-sm font-bold text-[#2AB9B0] whitespace-nowrap">Áreas Comuns</h3>
-            <div className="flex-1 h-px bg-[#2AB9B0]/20" />
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-            {filteredCA.map((unit) => (
-              <UnitCard key={unit.id} unit={unit} isAdmin={isAdmin} onUpdateUnit={onUpdateUnit} onOpenFicha={onOpenFicha} onCreateVistoria={onCreateVistoria} />
-            ))}
-          </div>
-        </div>
-      )}
+        );
+      })}
 
       {isAdmin && (
         <p className="text-[11px] text-gray-600 text-center">
@@ -674,17 +654,20 @@ export default function BuildingView({
                 {/* Unit header */}
                 <div className="bg-[#0F1E2E] border border-white/5 rounded-2xl p-4">
                   <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">
-                    {syncedSelected.floor === 0 ? "Área Comum" : "Unidade"}
+                    {isSpecialLevel(syncedSelected.floor) ? "Nível" : isCommonArea(syncedSelected) ? "Área Comum" : "Unidade"}
                   </p>
                   <p className="text-2xl font-black text-white leading-tight">{syncedSelected.number}</p>
                   {syncedSelected.responsavel && (
                     <p className="text-xs text-gray-300 mt-0.5 truncate">👤 {syncedSelected.responsavel}</p>
                   )}
                   <p className="text-xs text-gray-500 mt-0.5">{syncedSelected.tower}</p>
-                  {syncedSelected.floor > 0 && (
+                  {!isSpecialLevel(syncedSelected.floor) && !isCommonArea(syncedSelected) && (
                     <p className="text-xs text-gray-500">
-                      {syncedSelected.floor}º andar · Posição {syncedSelected.position}
+                      {floorName(syncedSelected.floor)} · Posição {syncedSelected.position}
                     </p>
+                  )}
+                  {isCommonArea(syncedSelected) && (
+                    <p className="text-xs text-gray-500">{floorName(syncedSelected.floor)} · hall, escada, área técnica</p>
                   )}
                   <button
                     onClick={() => setFichaUnitId(syncedSelected.id)}

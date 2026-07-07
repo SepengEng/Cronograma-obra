@@ -125,3 +125,40 @@ export const ALL_STATUSES: UnitStatus[] = [
   "pendencia",
   "indisponivel",
 ];
+
+/* ── Estrutura do prédio ────────────────────────────────────────────
+   Pavimentos de apartamento: 1 a 16 (posições 1-6 = apartamentos,
+   posição 7 = área comum do pavimento — hall, escada, área técnica).
+   Níveis especiais: -2=G2, -1=G1, 0=Térreo, 17=Rooftop, 18=Cobertura Verde. */
+export const APT_FLOOR_MIN = 1;
+export const APT_FLOOR_MAX = 16;
+export const COMMON_POSITION = 7;
+
+export function isSpecialLevel(floor: number): boolean {
+  return floor < APT_FLOOR_MIN || floor > APT_FLOOR_MAX;
+}
+export function isCommonArea(u: { floor: number; position: number }): boolean {
+  return !isSpecialLevel(u.floor) && u.position >= COMMON_POSITION;
+}
+export function isApartment(u: { floor: number; position: number }): boolean {
+  return !isSpecialLevel(u.floor) && u.position < COMMON_POSITION;
+}
+
+export function floorName(floor: number): string {
+  if (floor === 18) return "Cobertura Verde";
+  if (floor === 17) return "Rooftop";
+  if (floor === 0) return "Térreo";
+  if (floor === -1) return "G1";
+  if (floor === -2) return "G2";
+  return `${floor}º andar`;
+}
+
+/** Rótulo curto para o strip vertical do 3D. */
+export function floorShort(floor: number): string {
+  if (floor === 18) return "CV";
+  if (floor === 17) return "RT";
+  if (floor === 0) return "T";
+  if (floor === -1) return "G1";
+  if (floor === -2) return "G2";
+  return String(floor);
+}
