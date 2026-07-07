@@ -458,6 +458,54 @@ function parseVistoria(raw: string | null): VistoriaCheck {
   } catch { return base; }
 }
 
+function TermoItemRow({ label, ti, isAdmin, onStatusChange, onObsSave }: {
+  label: string;
+  ti: TermoItem;
+  isAdmin: boolean;
+  onStatusChange: (s: TermoItemStatus) => void;
+  onObsSave: (o: string) => void;
+}) {
+  const [obsLocal, setObsLocal] = useState(ti.obs);
+  useEffect(() => { setObsLocal(ti.obs); }, [ti.obs]);
+
+  return (
+    <div className="bg-black/20 border border-white/5 rounded-xl p-3 flex flex-col gap-2">
+      <div className="flex items-center gap-2 flex-wrap">
+        <span className="text-sm text-white flex-1 min-w-0">{label}</span>
+        <div className="flex gap-1.5 flex-shrink-0">
+          {([
+            { key: "aceito",     label: "Aceito",     color: "#22C55E" },
+            { key: "nao_aceito", label: "Não Aceito", color: "#EF4444" },
+            { key: "nao_aplica", label: "N/A",        color: "#6B7280" },
+          ] as { key: TermoItemStatus; label: string; color: string }[]).map((opt) => (
+            <button
+              key={opt.key}
+              disabled={!isAdmin}
+              onClick={() => onStatusChange(ti.status === opt.key ? null : opt.key)}
+              className="text-[10px] font-semibold px-2 py-1 rounded-lg border transition-all disabled:cursor-default"
+              style={ti.status === opt.key
+                ? { backgroundColor: opt.color + "22", borderColor: opt.color + "66", color: opt.color }
+                : { borderColor: "rgba(255,255,255,0.08)", color: "#6B7280" }}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
+      </div>
+      {(ti.status === "nao_aceito" || ti.obs) && (
+        <input
+          value={obsLocal}
+          disabled={!isAdmin}
+          onChange={(e) => setObsLocal(e.target.value)}
+          onBlur={() => { if (obsLocal !== ti.obs) onObsSave(obsLocal); }}
+          placeholder="Observação…"
+          className="bg-black/40 border border-white/10 rounded-lg px-2.5 py-1.5 text-xs text-white placeholder-gray-600 focus:outline-none focus:ring-1 focus:ring-[#2AB9B0] disabled:text-gray-400"
+        />
+      )}
+    </div>
+  );
+}
+
 function VistoriaTab({ unit, isAdmin, patch }: { unit: Unit; isAdmin: boolean; patch: (p: UnitPatch) => Promise<void> }) {
   const data = parseVistoria(unit.vistoriaCheck);
   const update = (next: Partial<VistoriaCheck>) =>
@@ -545,43 +593,15 @@ function VistoriaTab({ unit, isAdmin, patch }: { unit: Unit; isAdmin: boolean; p
               const ti = data.termoItens[item] ?? { status: null, obs: "" };
               const setStatus = (s: TermoItemStatus) =>
                 update({ termoItens: { ...data.termoItens, [item]: { ...ti, status: s } } });
-              const setObs = (o: string) =>
-                update({ termoItens: { ...data.termoItens, [item]: { ...ti, obs: o } } });
               return (
-                <div key={item} className="bg-black/20 border border-white/5 rounded-xl p-3 flex flex-col gap-2">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-sm text-white flex-1 min-w-0">{item}</span>
-                    <div className="flex gap-1.5 flex-shrink-0">
-                      {([
-                        { key: "aceito",     label: "Aceito",        color: "#22C55E" },
-                        { key: "nao_aceito", label: "Não Aceito",    color: "#EF4444" },
-                        { key: "nao_aplica", label: "N/A",           color: "#6B7280" },
-                      ] as { key: TermoItemStatus; label: string; color: string }[]).map((opt) => (
-                        <button
-                          key={opt.key}
-                          disabled={!isAdmin}
-                          onClick={() => setStatus(ti.status === opt.key ? null : opt.key)}
-                          className="text-[10px] font-semibold px-2 py-1 rounded-lg border transition-all disabled:cursor-default"
-                          style={ti.status === opt.key
-                            ? { backgroundColor: opt.color + "22", borderColor: opt.color + "66", color: opt.color }
-                            : { borderColor: "rgba(255,255,255,0.08)", color: "#6B7280" }}
-                        >
-                          {opt.label}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                  {(ti.status === "nao_aceito" || ti.obs) && (
-                    <input
-                      key={item}
-                      defaultValue={ti.obs}
-                      disabled={!isAdmin}
-                      onBlur={(e) => { if (e.target.value !== ti.obs) setObs(e.target.value); }}
-                      placeholder="Observação…"
-                      className="bg-black/40 border border-white/10 rounded-lg px-2.5 py-1.5 text-xs text-white placeholder-gray-600 focus:outline-none focus:ring-1 focus:ring-[#2AB9B0] disabled:text-gray-400"
-                    />
-                  )}
-                </div>
+                <TermoItemRow
+                  key={item}
+                  label={item}
+                  ti={ti}
+                  isAdmin={isAdmin}
+                  onStatusChange={(s) => update({ termoItens: { ...data.termoItens, [item]: { ...ti, status: s } } })}
+                  onObsSave={(o) => update({ termoItens: { ...data.termoItens, [item]: { ...ti, obs: o } } })}
+                />
               );
             })}
           </div>
