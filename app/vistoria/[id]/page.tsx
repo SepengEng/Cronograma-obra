@@ -68,6 +68,7 @@ export default function VistoriaPage() {
         setObservacoes(data.observacoes ?? "");
         setResponsavel(data.responsavel ?? "");
         setSupervisor(data.supervisor ?? "");
+        if (data.tipo === "area_comum") setActiveArea("hall");
         const tipo = data.tipo === "habitese" ? "habitese" : "completa";
         const cats = tipo === "completa" ? CHECKLIST_COMPLETA : CHECKLIST_HABITESE;
         const empty = emptyFullChecklist(tipo);
@@ -238,7 +239,7 @@ export default function VistoriaPage() {
 
       {/* Area tabs */}
       <div className="bg-[#0A1521] border-b border-white/5 px-5 flex gap-1 flex-shrink-0 overflow-x-auto">
-        {AREAS.map((area) => {
+        {AREAS.filter((a) => vistoria?.tipo === "area_comum" ? a.key !== "apto" : true).map((area) => {
           const { done, total } = countArea(checklist[area.key]);
           const allDone = total > 0 && done === total;
           return (

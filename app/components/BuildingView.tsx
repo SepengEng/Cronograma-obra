@@ -200,10 +200,17 @@ function UnitCard({
   isAdmin: boolean;
   onUpdateUnit: (id: string, status: UnitStatus, notes?: string, extras?: { responsavel?: string; pendencias?: string }) => Promise<void>;
   onOpenFicha: (id: string) => void;
-  onCreateVistoria?: (unitId: string) => Promise<void>;
+  onCreateVistoria?: (unitId: string, tipo: "completa" | "area_comum") => Promise<void>;
 }) {
-  const [creating, setCreating] = useState(false);
+  const [creating, setCreating] = useState<"completa" | "area_comum" | null>(null);
   const color = STATUS_COLOR[unit.status];
+
+  const handleCreate = async (tipo: "completa" | "area_comum") => {
+    setCreating(tipo);
+    await onCreateVistoria?.(unit.id, tipo);
+    setCreating(null);
+  };
+
   return (
     <div
       className="bg-[#0F1E2E] border border-white/5 rounded-xl p-3 flex flex-col gap-2 hover:border-white/15 transition-all"
@@ -234,15 +241,24 @@ function UnitCard({
         <VistoriaBadge raw={unit.vistoriaCheck} onClick={() => onOpenFicha(unit.id)} />
       </div>
 
-      {/* Linha 4: botão nova vistoria */}
+      {/* Linha 4: botões de vistoria */}
       {onCreateVistoria && (
-        <button
-          onClick={async () => { setCreating(true); await onCreateVistoria(unit.id); setCreating(false); }}
-          disabled={creating}
-          className="w-full py-1 rounded-lg border border-[#2AB9B0]/20 text-[#2AB9B0] text-[10px] font-semibold hover:bg-[#2AB9B0]/10 transition-all disabled:opacity-50"
-        >
-          {creating ? "Criando…" : "✓ Nova vistoria"}
-        </button>
+        <div className="flex gap-1.5">
+          <button
+            onClick={() => handleCreate("completa")}
+            disabled={!!creating}
+            className="flex-1 py-1 rounded-lg border border-[#2AB9B0]/20 text-[#2AB9B0] text-[10px] font-semibold hover:bg-[#2AB9B0]/10 transition-all disabled:opacity-50"
+          >
+            {creating === "completa" ? "…" : "Pré-vistoria Ap"}
+          </button>
+          <button
+            onClick={() => handleCreate("area_comum")}
+            disabled={!!creating}
+            className="flex-1 py-1 rounded-lg border border-white/10 text-gray-400 text-[10px] font-semibold hover:bg-white/5 hover:text-white transition-all disabled:opacity-50"
+          >
+            {creating === "area_comum" ? "…" : "Área Comum Pav."}
+          </button>
+        </div>
       )}
     </div>
   );
@@ -260,7 +276,7 @@ function GridView({
   isAdmin: boolean;
   onUpdateUnit: (id: string, status: UnitStatus, notes?: string, extras?: { responsavel?: string; pendencias?: string }) => Promise<void>;
   onOpenFicha: (id: string) => void;
-  onCreateVistoria?: (unitId: string) => Promise<void>;
+  onCreateVistoria?: (unitId: string, tipo: "completa" | "area_comum") => Promise<void>;
 }) {
   const [filterStatus, setFilterStatus] = useState<UnitStatus | "all">("all");
   const [search, setSearch] = useState("");
@@ -486,7 +502,7 @@ export default function BuildingView({
   sessionId: string;
   onUpdateUnit: (id: string, status: UnitStatus, notes?: string, extras?: { responsavel?: string; pendencias?: string }) => Promise<void>;
   onPatch: (id: string, patch: UnitPatch) => Promise<void>;
-  onCreateVistoria?: (unitId: string) => Promise<void>;
+  onCreateVistoria?: (unitId: string, tipo: "completa" | "area_comum") => Promise<void>;
 }) {
   const [viewMode, setViewMode] = useState<"3d" | "grid">("3d");
   const [selectedUnit, setSelectedUnit] = useState<Unit | null>(null);

@@ -161,13 +161,13 @@ export default function CronogramaPage() {
     if (r.ok) { const updated=await r.json(); setUnits(p=>p.map(u=>u.id===updated.id?updated:u)); }
   }
 
-  async function handleCreateVistoria(unitId: string) {
+  async function handleCreateVistoria(unitId: string, tipo: "completa" | "area_comum" = "completa") {
     if (!session) return;
     const unit = units.find((u) => u.id === unitId);
     const r = await fetch("/api/vistorias", {
       method: "POST",
       headers: { "Content-Type": "application/json", "x-user-id": session.id },
-      body: JSON.stringify({ unitId, pavimento: unit ? `${unit.floor}º andar` : undefined }),
+      body: JSON.stringify({ unitId, tipo, pavimento: unit ? `${unit.floor}º andar` : undefined }),
     });
     if (r.ok) {
       const v = await r.json();
