@@ -573,9 +573,10 @@ function VistoriaTab({ unit, isAdmin, patch }: { unit: Unit; isAdmin: boolean; p
                   </div>
                   {(ti.status === "nao_aceito" || ti.obs) && (
                     <input
-                      value={ti.obs}
+                      key={item}
+                      defaultValue={ti.obs}
                       disabled={!isAdmin}
-                      onChange={(e) => setObs(e.target.value)}
+                      onBlur={(e) => { if (e.target.value !== ti.obs) setObs(e.target.value); }}
                       placeholder="Observação…"
                       className="bg-black/40 border border-white/10 rounded-lg px-2.5 py-1.5 text-xs text-white placeholder-gray-600 focus:outline-none focus:ring-1 focus:ring-[#2AB9B0] disabled:text-gray-400"
                     />
