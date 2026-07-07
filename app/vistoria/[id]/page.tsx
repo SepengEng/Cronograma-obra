@@ -182,6 +182,12 @@ export default function VistoriaPage() {
           <span className="text-xs text-gray-500 ml-2">· LVS {vistoria.tipo === "habitese" ? "Habite-se" : "Completa"}</span>
         </div>
         <div className="flex items-center gap-3">
+          <button
+            onClick={() => router.push(`/vistoria/${id}/relatorio`)}
+            className="px-3 py-1.5 rounded-xl border border-white/10 text-gray-300 text-xs font-semibold hover:bg-white/5 hover:text-white transition-colors"
+          >
+            📄 Relatório
+          </button>
           {isFinished ? (
             <span className="px-3 py-1 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">Finalizada</span>
           ) : (
