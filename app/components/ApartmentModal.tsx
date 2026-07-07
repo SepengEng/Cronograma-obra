@@ -22,7 +22,7 @@ const TABS = [
   { key: "proprietario", label: "👤 Proprietário" },
   { key: "financiamento", label: "💰 Financiamento" },
   { key: "contrato", label: "📄 Contrato" },
-  { key: "vistoria", label: "🔍 Vistoria" },
+  { key: "vistoria", label: "🔍 Pré-vistoria" },
   { key: "entrega", label: "🔑 Entrega de chaves" },
   { key: "posobra", label: "🔧 Pós-obra" },
 ] as const;
