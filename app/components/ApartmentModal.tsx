@@ -205,7 +205,10 @@ export default function ApartmentModal({
 
         {/* Tabs */}
         <div className="flex gap-1 px-3 py-2 border-b border-white/5 overflow-x-auto flex-shrink-0 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-          {TABS.map((t) => (
+          {TABS.filter((t) => unit.floor === 0
+            ? !["proprietario", "financiamento", "contrato"].includes(t.key)
+            : true
+          ).map((t) => (
             <button key={t.key} onClick={() => setTab(t.key)}
               className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all
                 ${tab === t.key ? "bg-[#2AB9B0] text-white shadow-sm shadow-[#2AB9B0]/30" : "text-gray-500 hover:text-gray-300 hover:bg-white/5"}`}>
