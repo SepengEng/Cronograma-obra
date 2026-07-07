@@ -432,7 +432,7 @@ type TermoItemStatus = "aceito" | "nao_aceito" | "nao_aplica" | null;
 type TermoItem = { status: TermoItemStatus; obs: string };
 type Parecer = "aprovado_sem_ressalva" | "aprovado_com_ressalva" | "pendente_revistoria" | null;
 
-type VistoriaCheck = {
+type VistoriaCheckData = {
   status: "pendente" | "recebido_sem_pendencias" | "recebido_com_pendencias";
   dataRecebimento: string;
   responsavel: string;
@@ -442,20 +442,39 @@ type VistoriaCheck = {
   parecer: Parecer;
 };
 
+type VistoriaCheck = {
+  apto: VistoriaCheckData;
+  areaComum: VistoriaCheckData;
+};
+
 function emptyTermoItens(): Record<string, TermoItem> {
   return Object.fromEntries(TERMO_ITENS.map((k) => [k, { status: null, obs: "" }]));
 }
 
+function emptyVistoriaData(): VistoriaCheckData {
+  return { status: "pendente", dataRecebimento: "", responsavel: "", pendencias: [], obs: "", termoItens: emptyTermoItens(), parecer: null };
+}
+
+function parseVistoriaData(raw: unknown): VistoriaCheckData {
+  const base = emptyVistoriaData();
+  if (!raw || typeof raw !== "object") return base;
+  const p = raw as Partial<VistoriaCheckData>;
+  return { ...base, ...p, termoItens: { ...emptyTermoItens(), ...(p.termoItens ?? {}) } };
+}
+
 function parseVistoria(raw: string | null): VistoriaCheck {
-  const base: VistoriaCheck = {
-    status: "pendente", dataRecebimento: "", responsavel: "",
-    pendencias: [], obs: "", termoItens: emptyTermoItens(), parecer: null,
-  };
-  if (!raw) return base;
+  if (!raw) return { apto: emptyVistoriaData(), areaComum: emptyVistoriaData() };
   try {
     const parsed = JSON.parse(raw);
-    return { ...base, ...parsed, termoItens: { ...emptyTermoItens(), ...(parsed.termoItens ?? {}) } };
-  } catch { return base; }
+    // backwards compat: if old format (had status at root), migrate to apto
+    if (parsed.status !== undefined) {
+      return { apto: parseVistoriaData(parsed), areaComum: emptyVistoriaData() };
+    }
+    return {
+      apto:      parseVistoriaData(parsed.apto),
+      areaComum: parseVistoriaData(parsed.areaComum),
+    };
+  } catch { return { apto: emptyVistoriaData(), areaComum: emptyVistoriaData() }; }
 }
 
 function TermoItemRow({ label, ti, isAdmin, onStatusChange, onObsSave }: {
@@ -507,11 +526,13 @@ function TermoItemRow({ label, ti, isAdmin, onStatusChange, onObsSave }: {
 }
 
 function VistoriaTab({ unit, isAdmin, patch }: { unit: Unit; isAdmin: boolean; patch: (p: UnitPatch) => Promise<void> }) {
-  const data = parseVistoria(unit.vistoriaCheck);
-  const update = (next: Partial<VistoriaCheck>) =>
-    patch({ vistoriaCheck: JSON.stringify({ ...data, ...next }) });
+  const full = parseVistoria(unit.vistoriaCheck);
+  const [tipo, setTipo] = useState<"apto" | "areaComum">("apto");
+  const data = full[tipo];
+  const update = (next: Partial<VistoriaCheckData>) =>
+    patch({ vistoriaCheck: JSON.stringify({ ...full, [tipo]: { ...data, ...next } }) });
 
-  const STATUS_OPTS: { key: VistoriaCheck["status"]; label: string; desc: string; color: string }[] = [
+  const STATUS_OPTS: { key: VistoriaCheckData["status"]; label: string; desc: string; color: string }[] = [
     { key: "pendente",                  label: "Pendente",                   desc: "Documento ainda não entregue ao cliente",    color: "#6B7280" },
     { key: "recebido_sem_pendencias",   label: "Recebido — sem pendências",  desc: "Cliente recebeu e aceitou sem ressalvas",   color: "#22C55E" },
     { key: "recebido_com_pendencias",   label: "Recebido — com pendências",  desc: "Cliente recebeu e apontou pendências",      color: "#EAB308" },
@@ -533,6 +554,26 @@ function VistoriaTab({ unit, isAdmin, patch }: { unit: Unit; isAdmin: boolean; p
 
   return (
     <div className="flex flex-col gap-6 max-w-lg">
+
+      {/* Seletor de tipo */}
+      <div className="flex gap-2">
+        {([
+          { key: "apto",      label: "🏠 Apartamento" },
+          { key: "areaComum", label: "🏢 Área Comum"  },
+        ] as const).map((t) => (
+          <button
+            key={t.key}
+            onClick={() => setTipo(t.key)}
+            className={`flex-1 py-2 rounded-xl text-sm font-semibold border transition-all ${
+              tipo === t.key
+                ? "bg-[#2AB9B0] border-[#2AB9B0] text-white shadow-sm shadow-[#2AB9B0]/30"
+                : "border-white/10 text-gray-400 hover:text-white hover:border-white/20"
+            }`}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
 
       {/* Status de recebimento */}
       <div>
