@@ -161,7 +161,7 @@ export default function CronogramaPage() {
     if (r.ok) { const updated=await r.json(); setUnits(p=>p.map(u=>u.id===updated.id?updated:u)); }
   }
 
-  async function handleCreateVistoria(unitId: string, tipo: "completa" | "area_comum" = "completa") {
+  async function handleCreateVistoria(unitId: string, tipo: "habitese" | "area_comum" = "habitese") {
     if (!session) return;
     const unit = units.find((u) => u.id === unitId);
     const r = await fetch("/api/vistorias", {

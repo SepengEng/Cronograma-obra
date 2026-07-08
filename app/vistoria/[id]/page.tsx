@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import {
-  AREAS, CHECKLIST_COMPLETA, CHECKLIST_HABITESE,
+  AREAS, CHECKLIST,
   type AreaKey, type ItemStatus, type FullChecklist, type ChecklistCategory,
   emptyFullChecklist, countArea,
 } from "../checklistData";
@@ -69,15 +69,13 @@ export default function VistoriaPage() {
         setResponsavel(data.responsavel ?? "");
         setSupervisor(data.supervisor ?? "");
         if (data.tipo === "area_comum") setActiveArea("hall");
-        const tipo = data.tipo === "habitese" ? "habitese" : "completa";
-        const cats = tipo === "completa" ? CHECKLIST_COMPLETA : CHECKLIST_HABITESE;
-        const empty = emptyFullChecklist(tipo);
+        const empty = emptyFullChecklist();
         if (data.checklist) {
           try {
             const saved = JSON.parse(data.checklist) as FullChecklist;
             // merge with empty to ensure all keys exist
             for (const areaKey of Object.keys(empty) as AreaKey[]) {
-              for (const cat of cats) {
+              for (const cat of CHECKLIST) {
                 for (const item of cat.items) {
                   if (!empty[areaKey][item.key]) empty[areaKey][item.key] = { status: null, obs: "" };
                   if (saved[areaKey]?.[item.key]) empty[areaKey][item.key] = saved[areaKey][item.key];
@@ -87,11 +85,11 @@ export default function VistoriaPage() {
           } catch { /* use empty */ }
         }
         setChecklist(empty);
-        setActiveCat(cats[0].key);
+        setActiveCat(CHECKLIST[0].key);
       });
   }, [id]);
 
-  const cats: ChecklistCategory[] = vistoria?.tipo === "habitese" ? CHECKLIST_HABITESE : CHECKLIST_COMPLETA;
+  const cats: ChecklistCategory[] = CHECKLIST;
   const isFinished = vistoria?.status === "finalizada";
   const canEdit = !isFinished && !!session;
 
@@ -178,8 +176,10 @@ export default function VistoriaPage() {
         <div className="w-px h-4 bg-white/10" />
         <div className="flex-1">
           <span className="text-xs text-gray-500">Vistoria &nbsp;·&nbsp; </span>
-          <span className="text-sm font-semibold">AP {vistoria.unit.number} &nbsp;·&nbsp; {vistoria.unit.floor}º andar</span>
-          <span className="text-xs text-gray-500 ml-2">· LVS {vistoria.tipo === "habitese" ? "Habite-se" : "Completa"}</span>
+          <span className="text-sm font-semibold">
+            {vistoria.tipo === "area_comum" ? vistoria.unit.number : `AP ${vistoria.unit.number} · ${vistoria.unit.floor}º andar`}
+          </span>
+          <span className="text-xs text-gray-500 ml-2">· LVS Habite-se</span>
         </div>
         <div className="flex items-center gap-3">
           <button

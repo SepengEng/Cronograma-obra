@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import {
-  AREAS, CHECKLIST_COMPLETA, CHECKLIST_HABITESE,
+  AREAS, CHECKLIST,
   type AreaKey, type FullChecklist, type ChecklistCategory,
   emptyFullChecklist, countArea,
 } from "../../checklistData";
@@ -51,8 +51,7 @@ export default function RelatorioVistoriaPage() {
       .then((r) => r.json())
       .then((data: VistoriaData) => {
         setVistoria(data);
-        const tipo = data.tipo === "habitese" ? "habitese" : "completa";
-        const empty = emptyFullChecklist(tipo);
+        const empty = emptyFullChecklist();
         if (data.checklist) {
           try {
             const saved = JSON.parse(data.checklist) as FullChecklist;
@@ -75,7 +74,7 @@ export default function RelatorioVistoriaPage() {
     );
   }
 
-  const cats: ChecklistCategory[] = vistoria.tipo === "habitese" ? CHECKLIST_HABITESE : CHECKLIST_COMPLETA;
+  const cats: ChecklistCategory[] = CHECKLIST;
   const areas = AREAS.filter((a) => vistoria.tipo === "area_comum" ? a.key !== "apto" : a.key === "apto");
   const totalAll = areas.reduce((acc, a) => { const c = countArea(checklist[a.key]); return { done: acc.done + c.done, total: acc.total + c.total }; }, { done: 0, total: 0 });
   const pct = totalAll.total ? Math.round((totalAll.done / totalAll.total) * 100) : 0;
@@ -140,7 +139,7 @@ export default function RelatorioVistoriaPage() {
           </div>
           <div>
             <p className="font-bold text-gray-500 uppercase tracking-wider text-[10px] mb-0.5">Tipo de vistoria</p>
-            <p className="text-gray-800">{vistoria.tipo === "habitese" ? "Habite-se" : "Completa"}</p>
+            <p className="text-gray-800">{vistoria.tipo === "area_comum" ? "Áreas comuns" : "Habite-se"}</p>
           </div>
         </div>
 

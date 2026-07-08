@@ -230,13 +230,13 @@ function UnitCard({
   isAdmin: boolean;
   onUpdateUnit: (id: string, status: UnitStatus, notes?: string, extras?: { responsavel?: string; pendencias?: string }) => Promise<void>;
   onOpenFicha: (id: string) => void;
-  onCreateVistoria?: (unitId: string, tipo: "completa" | "area_comum") => Promise<void>;
+  onCreateVistoria?: (unitId: string, tipo: "habitese" | "area_comum") => Promise<void>;
 }) {
   const [creating, setCreating] = useState(false);
   const color = STATUS_COLOR[unit.status];
   const special = isSpecialLevel(unit.floor);
   const common = isCommonArea(unit);
-  const vistoriaTipo: "completa" | "area_comum" = special || common ? "area_comum" : "completa";
+  const vistoriaTipo: "habitese" | "area_comum" = special || common ? "area_comum" : "habitese";
 
   const handleCreate = async () => {
     setCreating(true);
@@ -302,7 +302,7 @@ function GridView({
   isAdmin: boolean;
   onUpdateUnit: (id: string, status: UnitStatus, notes?: string, extras?: { responsavel?: string; pendencias?: string }) => Promise<void>;
   onOpenFicha: (id: string) => void;
-  onCreateVistoria?: (unitId: string, tipo: "completa" | "area_comum") => Promise<void>;
+  onCreateVistoria?: (unitId: string, tipo: "habitese" | "area_comum") => Promise<void>;
 }) {
   const [filterStatus, setFilterStatus] = useState<UnitStatus | "all">("all");
   const [search, setSearch] = useState("");
@@ -512,7 +512,7 @@ export default function BuildingView({
   sessionId: string;
   onUpdateUnit: (id: string, status: UnitStatus, notes?: string, extras?: { responsavel?: string; pendencias?: string }) => Promise<void>;
   onPatch: (id: string, patch: UnitPatch) => Promise<void>;
-  onCreateVistoria?: (unitId: string, tipo: "completa" | "area_comum") => Promise<void>;
+  onCreateVistoria?: (unitId: string, tipo: "habitese" | "area_comum") => Promise<void>;
 }) {
   const [viewMode, setViewMode] = useState<"3d" | "grid">("3d");
   const [selectedUnit, setSelectedUnit] = useState<Unit | null>(null);

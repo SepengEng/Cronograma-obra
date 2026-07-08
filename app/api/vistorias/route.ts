@@ -25,7 +25,7 @@ export async function POST(req: NextRequest) {
   const user = await prisma.user.findUnique({ where: { id: userId } });
   if (!user) return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
 
-  const { unitId, tipo = "completa", responsavel, pavimento } = await req.json();
+  const { unitId, tipo = "habitese", responsavel, pavimento } = await req.json();
   if (!unitId) return NextResponse.json({ error: "unitId obrigatório" }, { status: 400 });
 
   const vistoria = await prisma.vistoria.create({
