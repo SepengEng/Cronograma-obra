@@ -283,7 +283,7 @@ function UnitCard({
           disabled={creating}
           className="w-full py-1 rounded-lg border border-[#2AB9B0]/20 text-[#2AB9B0] text-[10px] font-semibold hover:bg-[#2AB9B0]/10 transition-all disabled:opacity-50"
         >
-          {creating ? "Criando…" : special || common ? "✓ Nova vistoria (área comum)" : "✓ Nova vistoria"}
+          {creating ? "Criando…" : special || common ? "✓ Pré-vistoria" : "✓ Nova vistoria"}
         </button>
       )}
     </div>
