@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams } from "next/navigation";
 import {
   AREAS, CHECKLIST,
   type AreaKey, type FullChecklist, type ChecklistCategory,
@@ -41,7 +41,6 @@ function fmtD(s: string) {
 
 export default function RelatorioVistoriaPage() {
   const { id } = useParams<{ id: string }>();
-  const router = useRouter();
   const [vistoria, setVistoria] = useState<VistoriaData | null>(null);
   const [checklist, setChecklist] = useState<FullChecklist | null>(null);
 
@@ -94,7 +93,7 @@ export default function RelatorioVistoriaPage() {
     <div className="min-h-screen bg-[#f4f4f5]" style={{ fontFamily: "Arial, sans-serif" }}>
       {/* Toolbar — hidden on print */}
       <div className="no-print sticky top-0 z-10 bg-[#0B1929] border-b border-white/10 px-5 py-3 flex items-center gap-3">
-        <button onClick={() => router.back()} className="text-gray-400 hover:text-white text-sm transition-colors">← Voltar</button>
+        <button onClick={() => { window.location.href = `/vistoria/${id}`; }} className="text-gray-400 hover:text-white text-sm transition-colors">← Voltar</button>
         <div className="flex-1" />
         <button
           onClick={() => window.print()}

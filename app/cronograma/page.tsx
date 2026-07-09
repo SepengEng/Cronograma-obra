@@ -192,12 +192,14 @@ export default function CronogramaPage() {
     if (r.ok) {
       const v = await r.json();
       setVistoriaByUnit((m) => ({ ...m, [unitId]: v.id }));
-      router.push(`/vistoria/${v.id}`);
+      // navegação "dura" para evitar reaproveitamento de página em cache
+      // (voltar/avançar do Next.js) mostrando dados antigos da vistoria
+      window.location.href = `/vistoria/${v.id}`;
     }
   }
 
   function handleOpenVistoria(vistoriaId: string) {
-    router.push(`/vistoria/${vistoriaId}`);
+    window.location.href = `/vistoria/${vistoriaId}`;
   }
 
   // Patch genérico (ficha completa do apartamento)

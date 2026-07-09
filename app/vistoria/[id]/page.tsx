@@ -172,7 +172,7 @@ export default function VistoriaPage() {
 
       {/* Topbar */}
       <div className="bg-[#0F1E2E] border-b border-white/5 px-5 py-3 flex items-center gap-4 flex-shrink-0">
-        <button onClick={() => router.back()} className="text-gray-500 hover:text-white transition-colors text-sm">← Voltar</button>
+        <button onClick={() => { window.location.href = "/cronograma"; }} className="text-gray-500 hover:text-white transition-colors text-sm">← Voltar</button>
         <div className="w-px h-4 bg-white/10" />
         <div className="flex-1">
           <span className="text-xs text-gray-500">Vistoria &nbsp;·&nbsp; </span>
