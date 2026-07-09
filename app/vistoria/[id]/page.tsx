@@ -201,7 +201,7 @@ export default function VistoriaPage() {
               disabled={finalizing}
               className="px-4 py-1.5 rounded-xl bg-[#2AB9B0] text-white text-xs font-bold hover:bg-[#239b93] transition-colors disabled:opacity-50"
             >
-              {finalizing ? "Finalizando…" : "Finalizar vistoria"}
+              {finalizing ? "Salvando…" : "Salvar vistoria"}
             </button>
           )}
         </div>

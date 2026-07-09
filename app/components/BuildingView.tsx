@@ -225,12 +225,16 @@ function UnitCard({
   onUpdateUnit,
   onOpenFicha,
   onCreateVistoria,
+  vistoriaId,
+  onOpenVistoria,
 }: {
   unit: Unit;
   isAdmin: boolean;
   onUpdateUnit: (id: string, status: UnitStatus, notes?: string, extras?: { responsavel?: string; pendencias?: string }) => Promise<void>;
   onOpenFicha: (id: string) => void;
   onCreateVistoria?: (unitId: string, tipo: "habitese" | "area_comum") => Promise<void>;
+  vistoriaId?: string;
+  onOpenVistoria?: (vistoriaId: string) => void;
 }) {
   const [creating, setCreating] = useState(false);
   const color = STATUS_COLOR[unit.status];
@@ -276,8 +280,15 @@ function UnitCard({
         <VistoriaBadge raw={unit.vistoriaCheck} onClick={() => onOpenFicha(unit.id)} />
       </div>
 
-      {/* Linha 4: botão de vistoria */}
-      {onCreateVistoria && (
+      {/* Linha 4: botão de vistoria — se já existe, abre a existente */}
+      {vistoriaId && onOpenVistoria ? (
+        <button
+          onClick={() => onOpenVistoria(vistoriaId)}
+          className="w-full py-1 rounded-lg border border-[#2AB9B0]/40 bg-[#2AB9B0]/10 text-[#2AB9B0] text-[10px] font-semibold hover:bg-[#2AB9B0]/20 transition-all"
+        >
+          📋 Ver vistoria
+        </button>
+      ) : onCreateVistoria ? (
         <button
           onClick={handleCreate}
           disabled={creating}
@@ -285,7 +296,7 @@ function UnitCard({
         >
           {creating ? "Criando…" : special || common ? "✓ Pré-vistoria" : "✓ Nova vistoria"}
         </button>
-      )}
+      ) : null}
     </div>
   );
 }
@@ -297,12 +308,16 @@ function GridView({
   onUpdateUnit,
   onOpenFicha,
   onCreateVistoria,
+  vistoriaByUnit = {},
+  onOpenVistoria,
 }: {
   units: Unit[];
   isAdmin: boolean;
   onUpdateUnit: (id: string, status: UnitStatus, notes?: string, extras?: { responsavel?: string; pendencias?: string }) => Promise<void>;
   onOpenFicha: (id: string) => void;
   onCreateVistoria?: (unitId: string, tipo: "habitese" | "area_comum") => Promise<void>;
+  vistoriaByUnit?: Record<string, string>;
+  onOpenVistoria?: (vistoriaId: string) => void;
 }) {
   const [filterStatus, setFilterStatus] = useState<UnitStatus | "all">("all");
   const [search, setSearch] = useState("");
@@ -367,7 +382,7 @@ function GridView({
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
               {unitsOf(floor).map((unit) => (
-                <UnitCard key={unit.id} unit={unit} isAdmin={isAdmin} onUpdateUnit={onUpdateUnit} onOpenFicha={onOpenFicha} onCreateVistoria={onCreateVistoria} />
+                <UnitCard key={unit.id} unit={unit} isAdmin={isAdmin} onUpdateUnit={onUpdateUnit} onOpenFicha={onOpenFicha} onCreateVistoria={onCreateVistoria} vistoriaId={vistoriaByUnit[unit.id]} onOpenVistoria={onOpenVistoria} />
               ))}
             </div>
           </div>
@@ -506,6 +521,8 @@ export default function BuildingView({
   onUpdateUnit,
   onPatch,
   onCreateVistoria,
+  vistoriaByUnit = {},
+  onOpenVistoria,
 }: {
   units: Unit[];
   isAdmin: boolean;
@@ -513,6 +530,8 @@ export default function BuildingView({
   onUpdateUnit: (id: string, status: UnitStatus, notes?: string, extras?: { responsavel?: string; pendencias?: string }) => Promise<void>;
   onPatch: (id: string, patch: UnitPatch) => Promise<void>;
   onCreateVistoria?: (unitId: string, tipo: "habitese" | "area_comum") => Promise<void>;
+  vistoriaByUnit?: Record<string, string>;
+  onOpenVistoria?: (vistoriaId: string) => void;
 }) {
   const [viewMode, setViewMode] = useState<"3d" | "grid">("3d");
   const [selectedUnit, setSelectedUnit] = useState<Unit | null>(null);
@@ -621,7 +640,7 @@ export default function BuildingView({
 
       {/* ── Grid view ── */}
       {viewMode === "grid" && (
-        <GridView units={units} isAdmin={isAdmin} onUpdateUnit={onUpdateUnit} onOpenFicha={setFichaUnitId} onCreateVistoria={onCreateVistoria} />
+        <GridView units={units} isAdmin={isAdmin} onUpdateUnit={onUpdateUnit} onOpenFicha={setFichaUnitId} onCreateVistoria={onCreateVistoria} vistoriaByUnit={vistoriaByUnit} onOpenVistoria={onOpenVistoria} />
       )}
 
       {/* ── Ficha completa do apartamento ── */}

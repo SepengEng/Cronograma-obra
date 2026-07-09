@@ -49,6 +49,7 @@ export default function CronogramaPage() {
   const [loading, setLoading] = useState(true);
   const [view, setView] = useState<"calendar"|"lista"|"historico"|"predio">("calendar");
   const [units, setUnits] = useState<Unit[]>([]);
+  const [vistoriaByUnit, setVistoriaByUnit] = useState<Record<string,string>>({});
   const [month, setMonth] = useState(() => { const d=new Date(); return new Date(d.getFullYear(),d.getMonth(),1); });
   const [selected, setSelected] = useState(() => toKey(new Date()));
   const [showForm, setShowForm] = useState(false);
@@ -69,7 +70,18 @@ export default function CronogramaPage() {
     setSession(s);
     fetch("/api/visits").then(r=>r.json()).then(d=>setVisits(Array.isArray(d)?d:[])).catch(()=>{}).finally(()=>setLoading(false));
     fetch("/api/units").then(r=>r.json()).then(d=>setUnits(Array.isArray(d)?d:[])).catch(()=>{});
+    loadVistorias();
   }, [router]);
+
+  function loadVistorias() {
+    fetch("/api/vistorias").then(r=>r.json()).then((d)=>{
+      if (!Array.isArray(d)) return;
+      // ordenado desc por createdAt → a primeira de cada unidade é a mais recente
+      const map: Record<string,string> = {};
+      for (const v of d) { if (v.unitId && !map[v.unitId]) map[v.unitId] = v.id; }
+      setVistoriaByUnit(map);
+    }).catch(()=>{});
+  }
 
   const byDate: Record<string,Visit[]> = {};
   for (const v of visits) { const k=toKey(new Date(v.date)); (byDate[k]??=[]).push(v); }
@@ -171,8 +183,13 @@ export default function CronogramaPage() {
     });
     if (r.ok) {
       const v = await r.json();
+      setVistoriaByUnit((m) => ({ ...m, [unitId]: v.id }));
       router.push(`/vistoria/${v.id}`);
     }
+  }
+
+  function handleOpenVistoria(vistoriaId: string) {
+    router.push(`/vistoria/${vistoriaId}`);
   }
 
   // Patch genérico (ficha completa do apartamento)
@@ -336,7 +353,7 @@ export default function CronogramaPage() {
 
         {/* ── PRÉDIO 3D ── */}
         {view==="predio" && (
-          <BuildingView units={units} isAdmin={isAdmin} sessionId={session?.id ?? ""} onUpdateUnit={handleUnitUpdate} onPatch={handleUnitPatch} onCreateVistoria={handleCreateVistoria}/>
+          <BuildingView units={units} isAdmin={isAdmin} sessionId={session?.id ?? ""} onUpdateUnit={handleUnitUpdate} onPatch={handleUnitPatch} onCreateVistoria={handleCreateVistoria} vistoriaByUnit={vistoriaByUnit} onOpenVistoria={handleOpenVistoria}/>
         )}
       </div>
 
