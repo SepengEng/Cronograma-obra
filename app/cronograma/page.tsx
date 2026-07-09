@@ -76,9 +76,17 @@ export default function CronogramaPage() {
   function loadVistorias() {
     fetch("/api/vistorias").then(r=>r.json()).then((d)=>{
       if (!Array.isArray(d)) return;
-      // ordenado desc por createdAt → a primeira de cada unidade é a mais recente
+      // Lista vem desc por createdAt. Escolhe a "melhor" vistoria por unidade:
+      // prioriza finalizada e com checklist preenchido; empate → a mais recente.
+      const best: Record<string, { id: string; score: number }> = {};
+      for (const v of d) {
+        if (!v.unitId) continue;
+        const score = (v.status === "finalizada" ? 2 : 0) + (v.checklist ? 1 : 0);
+        const cur = best[v.unitId];
+        if (!cur || score > cur.score) best[v.unitId] = { id: v.id, score };
+      }
       const map: Record<string,string> = {};
-      for (const v of d) { if (v.unitId && !map[v.unitId]) map[v.unitId] = v.id; }
+      for (const uid in best) map[uid] = best[uid].id;
       setVistoriaByUnit(map);
     }).catch(()=>{});
   }
