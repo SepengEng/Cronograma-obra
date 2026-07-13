@@ -8,6 +8,7 @@ type TermoItemStatus = "aceito" | "nao_aceito" | "nao_aplica" | null;
 type VistoriaCheck = {
   status: "pendente" | "recebido_sem_pendencias" | "recebido_com_pendencias";
   termoItens?: Record<string, { status: TermoItemStatus; obs: string }>;
+  assinaturaImg?: string;
 };
 function parseVistoriaCheck(raw: string | null): VistoriaCheck | null {
   if (!raw) return null;
@@ -100,9 +101,10 @@ export default function ProgressoView({ units, vistorias }: { units: Unit[]; vis
   const pendentesChecklist = bestVistorias.reduce((acc, v) => acc + countPendentesChecklist(v.checklist), 0);
 
   // ── Termo de vistoria (recebimento do documento) ──
-  let termoPendente = 0, termoSemPend = 0, termoComPend = 0, naoAceitosTotal = 0;
+  let termoPendente = 0, termoSemPend = 0, termoComPend = 0, naoAceitosTotal = 0, termoAssinado = 0;
   for (const u of units) {
     const vc = parseVistoriaCheck(u.vistoriaCheck);
+    if (vc?.assinaturaImg) termoAssinado++;
     if (!vc || vc.status === "pendente") { termoPendente++; continue; }
     if (vc.status === "recebido_sem_pendencias") { termoSemPend++; continue; }
     termoComPend++;
@@ -156,6 +158,7 @@ export default function ProgressoView({ units, vistorias }: { units: Unit[]; vis
             <Row label="Recebido sem pendências" value={termoSemPend} color="#22C55E" />
             <Row label="Recebido com pendências" value={termoComPend} color="#EAB308" />
             <Row label="Itens Não Aceito (total)" value={naoAceitosTotal} color="#EF4444" />
+            <Row label="Termos assinados" value={termoAssinado} color="#2AB9B0" />
           </div>
         </Section>
 

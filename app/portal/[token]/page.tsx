@@ -35,6 +35,8 @@ type VistoriaCheck = {
   obs: string;
   termoItens: Record<string, TermoItem>;
   parecer: "aprovado_sem_ressalva" | "aprovado_com_ressalva" | "pendente_revistoria" | null;
+  assinaturaImg?: string;
+  assinaturaData?: string;
 };
 function parseVistoriaCheck(raw: string | null): VistoriaCheck | null {
   if (!raw) return null;
@@ -89,7 +91,13 @@ function VistoriaCard({ raw }: { raw: string | null }) {
         </ul>
       )}
       {v.parecer && (
-        <p className="text-[10px] text-gray-500 mt-1 pt-1.5 border-t border-white/5">{PARECER_LABEL[v.parecer]}</p>
+        <p className="text-[10px] text-gray-500 pt-1.5 border-t border-white/5">{PARECER_LABEL[v.parecer]}</p>
+      )}
+      {v.assinaturaImg && (
+        <div className="flex items-center gap-2 bg-black/20 rounded-xl px-2.5 py-2 mt-1">
+          <span className="text-[10px] text-gray-500 flex-shrink-0">✔ Assinado{v.assinaturaData ? ` em ${new Date(v.assinaturaData).toLocaleDateString("pt-BR")}` : ""}</span>
+          <img src={v.assinaturaImg} alt="assinatura" className="h-7 ml-auto rounded bg-black/30 border border-white/10" />
+        </div>
       )}
     </section>
   );

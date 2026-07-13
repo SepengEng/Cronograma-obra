@@ -6,6 +6,7 @@ import type {
   Unit, UnitPatch, PendenciaItem, PosObraItem, EntregaChaves,
 } from "./unitTypes";
 import { STATUS_COLOR, STATUS_LABEL, STATUS_EMOJI, isSpecialLevel, isCommonArea } from "./unitTypes";
+import SignaturePad from "./SignaturePad";
 /* ─── helpers ─────────────────────────────────────────────────── */
 function parseList<T>(raw: string | null): T[] {
   if (!raw) return [];
@@ -460,6 +461,8 @@ type VistoriaCheckData = {
   obs: string;
   termoItens: Record<string, TermoItem>;
   parecer: Parecer;
+  assinaturaImg: string;
+  assinaturaData: string;
 };
 
 function emptyTermoItens(items: readonly string[]): Record<string, TermoItem> {
@@ -467,7 +470,10 @@ function emptyTermoItens(items: readonly string[]): Record<string, TermoItem> {
 }
 
 function emptyVistoriaData(items: readonly string[]): VistoriaCheckData {
-  return { status: "pendente", dataRecebimento: "", responsavel: "", pendencias: [], obs: "", termoItens: emptyTermoItens(items), parecer: null };
+  return {
+    status: "pendente", dataRecebimento: "", responsavel: "", pendencias: [], obs: "",
+    termoItens: emptyTermoItens(items), parecer: null, assinaturaImg: "", assinaturaData: "",
+  };
 }
 
 function parseVistoriaData(raw: unknown, items: readonly string[]): VistoriaCheckData {
@@ -652,6 +658,20 @@ function VistoriaTab({ unit, isAdmin, patch }: { unit: Unit; isAdmin: boolean; p
                 {data.parecer === opt.key && <span className="ml-auto text-[#2AB9B0] text-xs">✓</span>}
               </button>
             ))}
+          </div>
+
+          {/* Assinatura do proprietário */}
+          <div className="flex flex-col gap-2 pt-1">
+            <p className="text-[11px] font-bold text-gray-500 uppercase tracking-wider">Assinatura do proprietário</p>
+            <SignaturePad
+              value={data.assinaturaImg}
+              canEdit={isAdmin}
+              onSave={(img) => update({ assinaturaImg: img, assinaturaData: new Date().toISOString() })}
+              note={false}
+            />
+            {data.assinaturaData && (
+              <p className="text-[10px] text-gray-500">Assinado em {new Date(data.assinaturaData).toLocaleString("pt-BR")}</p>
+            )}
           </div>
         </div>
       )}
