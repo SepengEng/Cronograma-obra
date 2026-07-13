@@ -4,6 +4,7 @@ import { useEffect, useState, FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import BuildingView from "../components/BuildingView";
 import ProgressoView from "../components/ProgressoView";
+import PedidosView from "../components/PedidosView";
 import type { Unit, UnitStatus, UnitPatch, VistoriaSummary } from "../components/unitTypes";
 
 type Role = "admin" | "obra";
@@ -48,7 +49,7 @@ export default function CronogramaPage() {
   const [session, setSession] = useState<Session|null>(null);
   const [visits, setVisits] = useState<Visit[]>([]);
   const [loading, setLoading] = useState(true);
-  const [view, setView] = useState<"calendar"|"lista"|"historico"|"predio"|"progresso">("calendar");
+  const [view, setView] = useState<"calendar"|"lista"|"historico"|"predio"|"progresso"|"pedidos">("calendar");
   const [units, setUnits] = useState<Unit[]>([]);
   const [vistoriaByUnit, setVistoriaByUnit] = useState<Record<string,string>>({});
   const [vistorias, setVistorias] = useState<VistoriaSummary[]>([]);
@@ -258,7 +259,7 @@ export default function CronogramaPage() {
       {/* Tabs */}
       <div className="relative z-10 bg-[#0F1E2E] border-b border-white/5 px-5">
         <div className="max-w-7xl mx-auto flex overflow-x-auto">
-          {([["calendar","📅 Calendário"],["lista","📋 Lista"],["historico","📜 Histórico"],["predio","🏢 Prédio"],["progresso","📊 Progresso"]] as const).map(([v,label])=>(
+          {([["calendar","📅 Calendário"],["lista","📋 Lista"],["historico","📜 Histórico"],["predio","🏢 Prédio"],["progresso","📊 Progresso"],["pedidos","📨 Pedidos"]] as const).map(([v,label])=>(
             <button key={v} onClick={()=>setView(v)}
               className={`relative px-4 py-3.5 text-sm font-semibold transition-all whitespace-nowrap ${view===v?"text-[#2AB9B0]":"text-gray-500 hover:text-gray-300"}`}>
               {label}
@@ -372,6 +373,11 @@ export default function CronogramaPage() {
         {/* ── PROGRESSO GERAL ── */}
         {view==="progresso" && (
           <ProgressoView units={units} vistorias={vistorias}/>
+        )}
+
+        {/* ── PEDIDOS (pós-obra centralizado) ── */}
+        {view==="pedidos" && (
+          <PedidosView units={units} isAdmin={isAdmin} sessionId={session?.id ?? ""} onPatch={handleUnitPatch}/>
         )}
       </div>
 

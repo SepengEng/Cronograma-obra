@@ -27,7 +27,7 @@ const TABS = [
   { key: "entrega", label: "🔑 Entrega de chaves" },
   { key: "posobra", label: "🔧 Pós-obra" },
 ] as const;
-type TabKey = typeof TABS[number]["key"];
+export type TabKey = typeof TABS[number]["key"];
 
 /* ─── Checklist reutilizável (laranja → verde) ────────────────── */
 function Checklist({
@@ -153,16 +153,17 @@ function Field({
 
 /* ─── Modal principal ─────────────────────────────────────────── */
 export default function ApartmentModal({
-  unit, isAdmin, sessionId, onPatch, onClose,
+  unit, isAdmin, sessionId, onPatch, onClose, initialTab,
 }: {
   unit: Unit;
   isAdmin: boolean;
   sessionId: string;
   onPatch: (id: string, patch: UnitPatch) => Promise<void>;
   onClose: () => void;
+  initialTab?: TabKey;
 }) {
   const semDono = isSpecialLevel(unit.floor) || isCommonArea(unit);
-  const [tab, setTab] = useState<TabKey>(semDono ? "vistoria" : "proprietario");
+  const [tab, setTab] = useState<TabKey>(initialTab ?? (semDono ? "vistoria" : "proprietario"));
   const [saving, setSaving] = useState(false);
 
   const patch = useCallback(async (p: UnitPatch) => {
