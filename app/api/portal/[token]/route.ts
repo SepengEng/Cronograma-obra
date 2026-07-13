@@ -8,7 +8,10 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ tok
 
   const unit = await prisma.unit.findUnique({
     where: { portalToken: token },
-    select: { number: true, tower: true, floor: true, responsavel: true, posObra: true },
+    select: {
+      number: true, tower: true, floor: true, responsavel: true, posObra: true,
+      vistoriaCheck: true, entregaChaves: true,
+    },
   });
   if (!unit) return NextResponse.json({ error: "Link inválido" }, { status: 404 });
 
@@ -18,5 +21,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ tok
     floor: unit.floor,
     responsavel: unit.responsavel,
     posObra: unit.posObra,
+    vistoriaCheck: unit.vistoriaCheck,
+    entregaChaves: unit.entregaChaves,
   });
 }

@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { useParams } from "next/navigation";
 import SignaturePad from "../../components/SignaturePad";
-import type { PosObraItem } from "../../components/unitTypes";
+import type { PosObraItem, EntregaChaves } from "../../components/unitTypes";
 
 const STATUS: Record<PosObraItem["status"], { label: string; color: string }> = {
   aberto:       { label: "Aberto",       color: "#F97316" },
@@ -18,11 +18,112 @@ type PortalData = {
   floor: number;
   responsavel: string | null;
   posObra: string | null;
+  vistoriaCheck: string | null;
+  entregaChaves: string | null;
 };
 
 function parse(raw: string | null): PosObraItem[] {
   if (!raw) return [];
   try { const v = JSON.parse(raw); return Array.isArray(v) ? v : []; } catch { return []; }
+}
+
+/* ── Vistoria (recebimento do documento) ────────────────────────── */
+type TermoItem = { status: "aceito" | "nao_aceito" | "nao_aplica" | null; obs: string };
+type VistoriaCheck = {
+  status: "pendente" | "recebido_sem_pendencias" | "recebido_com_pendencias";
+  dataRecebimento: string;
+  obs: string;
+  termoItens: Record<string, TermoItem>;
+  parecer: "aprovado_sem_ressalva" | "aprovado_com_ressalva" | "pendente_revistoria" | null;
+};
+function parseVistoriaCheck(raw: string | null): VistoriaCheck | null {
+  if (!raw) return null;
+  try { return JSON.parse(raw) as VistoriaCheck; } catch { return null; }
+}
+const PARECER_LABEL: Record<NonNullable<VistoriaCheck["parecer"]>, string> = {
+  aprovado_sem_ressalva: "Aprovada e aceita sem ressalva",
+  aprovado_com_ressalva: "Aprovada com ressalva de vício aparente",
+  pendente_revistoria:   "Itens pendentes — revistoria agendada",
+};
+
+/* ── Entrega de chaves ──────────────────────────────────────────── */
+function parseEntrega(raw: string | null): EntregaChaves | null {
+  if (!raw) return null;
+  try { return JSON.parse(raw) as EntregaChaves; } catch { return null; }
+}
+
+function VistoriaCard({ raw }: { raw: string | null }) {
+  const v = parseVistoriaCheck(raw);
+
+  if (!v || v.status === "pendente") {
+    return (
+      <section className="bg-[#0F1E2E] border border-white/5 rounded-2xl p-4 flex flex-col gap-1.5">
+        <h2 className="text-xs font-bold text-gray-400 flex items-center gap-1.5">🔍 Vistoria</h2>
+        <p className="text-xs text-gray-600 italic">Documento ainda não disponível.</p>
+      </section>
+    );
+  }
+
+  const naoAceitos = Object.entries(v.termoItens ?? {}).filter(([, ti]) => ti?.status === "nao_aceito");
+  const semPendencias = v.status === "recebido_sem_pendencias";
+
+  return (
+    <section className="bg-[#0F1E2E] border border-white/5 rounded-2xl p-4 flex flex-col gap-2">
+      <h2 className="text-xs font-bold text-gray-400 flex items-center gap-1.5">🔍 Vistoria</h2>
+      <div className="flex items-center gap-2">
+        <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: semPendencias ? "#22C55E" : "#EAB308" }} />
+        <span className="text-xs font-semibold" style={{ color: semPendencias ? "#22C55E" : "#EAB308" }}>
+          {semPendencias ? "Recebido sem pendências" : `Recebido — ${naoAceitos.length} pendência${naoAceitos.length !== 1 ? "s" : ""}`}
+        </span>
+      </div>
+      {v.dataRecebimento && (
+        <p className="text-[10px] text-gray-600">em {new Date(v.dataRecebimento + "T00:00").toLocaleDateString("pt-BR")}</p>
+      )}
+      {naoAceitos.length > 0 && (
+        <ul className="flex flex-col gap-1 mt-1">
+          {naoAceitos.map(([item, ti]) => (
+            <li key={item} className="text-[11px] text-gray-400 leading-tight">
+              • {item}{ti.obs ? <span className="text-gray-600 italic"> — {ti.obs}</span> : null}
+            </li>
+          ))}
+        </ul>
+      )}
+      {v.parecer && (
+        <p className="text-[10px] text-gray-500 mt-1 pt-1.5 border-t border-white/5">{PARECER_LABEL[v.parecer]}</p>
+      )}
+    </section>
+  );
+}
+
+function EntregaCard({ raw }: { raw: string | null }) {
+  const e = parseEntrega(raw);
+  const assinado = !!e?.documentoAssinado;
+  const docs = e?.docs ?? [];
+
+  return (
+    <section className="bg-[#0F1E2E] border border-white/5 rounded-2xl p-4 flex flex-col gap-2">
+      <h2 className="text-xs font-bold text-gray-400 flex items-center gap-1.5">🔑 Entrega de chaves</h2>
+      <div className="flex items-center gap-2">
+        <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: assinado ? "#22C55E" : "#6B7280" }} />
+        <span className="text-xs font-semibold" style={{ color: assinado ? "#22C55E" : "#9CA3AF" }}>
+          {assinado ? "Documento assinado" : "Aguardando assinatura"}
+        </span>
+      </div>
+      {assinado && e?.dataAssinatura && (
+        <p className="text-[10px] text-gray-600">em {new Date(e.dataAssinatura).toLocaleDateString("pt-BR")}</p>
+      )}
+      {docs.length > 0 && (
+        <ul className="flex flex-col gap-1 mt-1">
+          {docs.map((d) => (
+            <li key={d.id} className="text-[11px] flex items-center gap-1.5">
+              <span style={{ color: d.done ? "#22C55E" : "#4b5563" }}>{d.done ? "✓" : "○"}</span>
+              <span className={d.done ? "text-gray-400" : "text-gray-600"}>{d.text}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  );
 }
 
 export default function PortalPage() {
@@ -104,6 +205,12 @@ export default function PortalPage() {
         {data.responsavel && (
           <p className="text-sm text-gray-400">Olá, <span className="text-white font-semibold">{data.responsavel}</span> 👋</p>
         )}
+
+        {/* Status: Vistoria + Entrega de chaves */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <VistoriaCard raw={data.vistoriaCheck} />
+          <EntregaCard raw={data.entregaChaves} />
+        </div>
 
         {/* Novo pedido */}
         <section className="bg-[#0F1E2E] border border-white/5 rounded-2xl p-5">
