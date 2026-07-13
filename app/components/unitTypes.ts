@@ -12,6 +12,8 @@ export type PendenciaItem = {
   done: boolean;
 };
 
+export type VistoriaSummary = { id: string; unitId: string; tipo: string; status: string; checklist: string | null };
+
 export type PosObraItem = {
   id: string;
   titulo: string;

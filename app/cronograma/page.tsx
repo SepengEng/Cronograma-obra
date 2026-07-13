@@ -3,7 +3,8 @@
 import { useEffect, useState, FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import BuildingView from "../components/BuildingView";
-import type { Unit, UnitStatus, UnitPatch } from "../components/unitTypes";
+import ProgressoView from "../components/ProgressoView";
+import type { Unit, UnitStatus, UnitPatch, VistoriaSummary } from "../components/unitTypes";
 
 type Role = "admin" | "obra";
 type Session = { role: Role; name: string; id: string };
@@ -47,9 +48,10 @@ export default function CronogramaPage() {
   const [session, setSession] = useState<Session|null>(null);
   const [visits, setVisits] = useState<Visit[]>([]);
   const [loading, setLoading] = useState(true);
-  const [view, setView] = useState<"calendar"|"lista"|"historico"|"predio">("calendar");
+  const [view, setView] = useState<"calendar"|"lista"|"historico"|"predio"|"progresso">("calendar");
   const [units, setUnits] = useState<Unit[]>([]);
   const [vistoriaByUnit, setVistoriaByUnit] = useState<Record<string,string>>({});
+  const [vistorias, setVistorias] = useState<VistoriaSummary[]>([]);
   const [month, setMonth] = useState(() => { const d=new Date(); return new Date(d.getFullYear(),d.getMonth(),1); });
   const [selected, setSelected] = useState(() => toKey(new Date()));
   const [showForm, setShowForm] = useState(false);
@@ -76,6 +78,7 @@ export default function CronogramaPage() {
   function loadVistorias() {
     fetch("/api/vistorias").then(r=>r.json()).then((d)=>{
       if (!Array.isArray(d)) return;
+      setVistorias(d);
       // Lista vem desc por createdAt. Escolhe a "melhor" vistoria por unidade:
       // prioriza finalizada e com checklist preenchido; empate → a mais recente.
       const best: Record<string, { id: string; score: number }> = {};
@@ -255,7 +258,7 @@ export default function CronogramaPage() {
       {/* Tabs */}
       <div className="relative z-10 bg-[#0F1E2E] border-b border-white/5 px-5">
         <div className="max-w-7xl mx-auto flex overflow-x-auto">
-          {([["calendar","📅 Calendário"],["lista","📋 Lista"],["historico","📜 Histórico"],["predio","🏢 Prédio"]] as const).map(([v,label])=>(
+          {([["calendar","📅 Calendário"],["lista","📋 Lista"],["historico","📜 Histórico"],["predio","🏢 Prédio"],["progresso","📊 Progresso"]] as const).map(([v,label])=>(
             <button key={v} onClick={()=>setView(v)}
               className={`relative px-4 py-3.5 text-sm font-semibold transition-all whitespace-nowrap ${view===v?"text-[#2AB9B0]":"text-gray-500 hover:text-gray-300"}`}>
               {label}
@@ -364,6 +367,11 @@ export default function CronogramaPage() {
         {/* ── PRÉDIO 3D ── */}
         {view==="predio" && (
           <BuildingView units={units} isAdmin={isAdmin} sessionId={session?.id ?? ""} onUpdateUnit={handleUnitUpdate} onPatch={handleUnitPatch} onCreateVistoria={handleCreateVistoria} vistoriaByUnit={vistoriaByUnit} onOpenVistoria={handleOpenVistoria}/>
+        )}
+
+        {/* ── PROGRESSO GERAL ── */}
+        {view==="progresso" && (
+          <ProgressoView units={units} vistorias={vistorias}/>
         )}
       </div>
 
