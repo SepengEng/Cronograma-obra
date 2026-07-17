@@ -93,7 +93,7 @@ export default function VistoriaPage() {
   const cats: ChecklistCategory[] = CHECKLIST;
   const isFinished = vistoria?.status === "finalizada";
   const isAdmin = session?.role === "admin";
-  const canEdit = !!session && (!isFinished || editing);
+  const canEdit = isAdmin && (!isFinished || editing);
 
   const autosave = useCallback((next: FullChecklist, obs?: string, resp?: string, sup?: string) => {
     if (!session || !canEdit) return;
@@ -207,7 +207,7 @@ export default function VistoriaPage() {
                 ✏️ Editar
               </button>
             )
-          ) : (
+          ) : isAdmin && (
             <button
               onClick={handleFinalize}
               disabled={finalizing}
