@@ -48,6 +48,7 @@ export default function VistoriaPage() {
   const [activeCat, setActiveCat] = useState<string>("");
   const [saving, setSaving] = useState(false);
   const [finalizing, setFinalizing] = useState(false);
+  const [editing, setEditing] = useState(false);
   const [observacoes, setObservacoes] = useState("");
   const [responsavel, setResponsavel] = useState("");
   const [supervisor, setSupervisor] = useState("");
@@ -91,7 +92,8 @@ export default function VistoriaPage() {
 
   const cats: ChecklistCategory[] = CHECKLIST;
   const isFinished = vistoria?.status === "finalizada";
-  const canEdit = !!session;
+  const isAdmin = session?.role === "admin";
+  const canEdit = !!session && (!isFinished || editing);
 
   const autosave = useCallback((next: FullChecklist, obs?: string, resp?: string, sup?: string) => {
     if (!session || !canEdit) return;
@@ -146,6 +148,7 @@ export default function VistoriaPage() {
     const updated = await res.json();
     setVistoria(updated);
     setFinalizing(false);
+    setEditing(false);
   };
 
   const handleHeaderField = (field: "responsavel" | "supervisor", val: string) => {
@@ -188,20 +191,31 @@ export default function VistoriaPage() {
           >
             📄 Relatório
           </button>
-          {isFinished ? (
+          {isFinished && !editing ? (
             <span className="px-3 py-1 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">Finalizada</span>
           ) : (
             <span className="px-3 py-1 rounded-full text-xs font-semibold bg-yellow-500/10 text-yellow-400 border border-yellow-500/20">
-              {saving ? "Salvando…" : "Rascunho"}
+              {saving ? "Salvando…" : editing ? "Editando" : "Rascunho"}
             </span>
           )}
-          <button
-            onClick={handleFinalize}
-            disabled={finalizing}
-            className="px-4 py-1.5 rounded-xl bg-[#2AB9B0] text-white text-xs font-bold hover:bg-[#239b93] transition-colors disabled:opacity-50"
-          >
-            {finalizing ? "Salvando…" : "Salvar vistoria"}
-          </button>
+          {isFinished && !editing ? (
+            isAdmin && (
+              <button
+                onClick={() => setEditing(true)}
+                className="px-4 py-1.5 rounded-xl border border-[#2AB9B0]/40 text-[#2AB9B0] text-xs font-bold hover:bg-[#2AB9B0]/10 transition-colors"
+              >
+                ✏️ Editar
+              </button>
+            )
+          ) : (
+            <button
+              onClick={handleFinalize}
+              disabled={finalizing}
+              className="px-4 py-1.5 rounded-xl bg-[#2AB9B0] text-white text-xs font-bold hover:bg-[#239b93] transition-colors disabled:opacity-50"
+            >
+              {finalizing ? "Salvando…" : "Salvar vistoria"}
+            </button>
+          )}
         </div>
       </div>
 
