@@ -91,7 +91,7 @@ export default function VistoriaPage() {
 
   const cats: ChecklistCategory[] = CHECKLIST;
   const isFinished = vistoria?.status === "finalizada";
-  const canEdit = !isFinished && !!session;
+  const canEdit = !!session;
 
   const autosave = useCallback((next: FullChecklist, obs?: string, resp?: string, sup?: string) => {
     if (!session || !canEdit) return;
@@ -195,15 +195,13 @@ export default function VistoriaPage() {
               {saving ? "Salvando…" : "Rascunho"}
             </span>
           )}
-          {!isFinished && (
-            <button
-              onClick={handleFinalize}
-              disabled={finalizing}
-              className="px-4 py-1.5 rounded-xl bg-[#2AB9B0] text-white text-xs font-bold hover:bg-[#239b93] transition-colors disabled:opacity-50"
-            >
-              {finalizing ? "Salvando…" : "Salvar vistoria"}
-            </button>
-          )}
+          <button
+            onClick={handleFinalize}
+            disabled={finalizing}
+            className="px-4 py-1.5 rounded-xl bg-[#2AB9B0] text-white text-xs font-bold hover:bg-[#239b93] transition-colors disabled:opacity-50"
+          >
+            {finalizing ? "Salvando…" : "Salvar vistoria"}
+          </button>
         </div>
       </div>
 
@@ -221,7 +219,7 @@ export default function VistoriaPage() {
               <span className="text-sm font-medium text-[#2AB9B0] bg-[#0A1521] px-2 py-1.5 rounded-lg border border-white/5">{f.value}</span>
             ) : (
               <input
-                disabled={isFinished}
+                disabled={!canEdit}
                 value={f.value}
                 onChange={(e) => handleHeaderField(f.field!, e.target.value)}
                 placeholder="—"
