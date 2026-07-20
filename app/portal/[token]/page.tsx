@@ -42,12 +42,6 @@ function parseVistoriaCheck(raw: string | null): VistoriaCheck | null {
   if (!raw) return null;
   try { return JSON.parse(raw) as VistoriaCheck; } catch { return null; }
 }
-const PARECER_LABEL: Record<NonNullable<VistoriaCheck["parecer"]>, string> = {
-  aprovado_sem_ressalva: "Aprovada e aceita sem ressalva",
-  aprovado_com_ressalva: "Aprovada com ressalva de vício aparente",
-  pendente_revistoria:   "Itens pendentes — revistoria agendada",
-};
-
 /* ── Entrega de chaves ──────────────────────────────────────────── */
 function parseEntrega(raw: string | null): EntregaChaves | null {
   if (!raw) return null;
@@ -66,32 +60,15 @@ function VistoriaCard({ raw }: { raw: string | null }) {
     );
   }
 
-  const naoAceitos = Object.entries(v.termoItens ?? {}).filter(([, ti]) => ti?.status === "nao_aceito");
-  const semPendencias = v.status === "recebido_sem_pendencias";
-
   return (
     <section className="bg-[#0F1E2E] border border-white/5 rounded-2xl p-4 flex flex-col gap-2">
       <h2 className="text-xs font-bold text-gray-400 flex items-center gap-1.5">🔍 Vistoria</h2>
       <div className="flex items-center gap-2">
-        <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: semPendencias ? "#22C55E" : "#EAB308" }} />
-        <span className="text-xs font-semibold" style={{ color: semPendencias ? "#22C55E" : "#EAB308" }}>
-          {semPendencias ? "Recebido sem pendências" : `Recebido — ${naoAceitos.length} pendência${naoAceitos.length !== 1 ? "s" : ""}`}
-        </span>
+        <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: "#22C55E" }} />
+        <span className="text-xs font-semibold" style={{ color: "#22C55E" }}>Documento recebido</span>
       </div>
       {v.dataRecebimento && (
         <p className="text-[10px] text-gray-600">em {new Date(v.dataRecebimento + "T00:00").toLocaleDateString("pt-BR")}</p>
-      )}
-      {naoAceitos.length > 0 && (
-        <ul className="flex flex-col gap-1 mt-1">
-          {naoAceitos.map(([item, ti]) => (
-            <li key={item} className="text-[11px] text-gray-400 leading-tight">
-              • {item}{ti.obs ? <span className="text-gray-600 italic"> — {ti.obs}</span> : null}
-            </li>
-          ))}
-        </ul>
-      )}
-      {v.parecer && (
-        <p className="text-[10px] text-gray-500 pt-1.5 border-t border-white/5">{PARECER_LABEL[v.parecer]}</p>
       )}
       {v.assinaturaImg && (
         <div className="flex items-center gap-2 bg-black/20 rounded-xl px-2.5 py-2 mt-1">

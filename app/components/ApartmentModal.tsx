@@ -151,6 +151,47 @@ function Field({
   );
 }
 
+/* ─── Campo de data ───────────────────────────────────────────────
+   Usa estado local e só propaga quando a data está completa (ou no blur).
+   Sem isso, cada dígito digitado dispararia um save; como um <input type="date">
+   incompleto vale "", o valor voltava vazio do servidor e o ano nunca fechava. */
+function DateField({
+  label, value, onSave, isAdmin, className,
+}: {
+  label?: string;
+  value: string;
+  onSave: (v: string) => void;
+  isAdmin: boolean;
+  className?: string;
+}) {
+  const [v, setV] = useState(value);
+  // Ressincroniza quando o valor salvo muda por fora (outra aba/usuário)
+  useEffect(() => { setV(value); }, [value]);
+
+  const commit = (novo: string) => {
+    if (novo !== value) onSave(novo);
+  };
+
+  return (
+    <div className="flex flex-col gap-1.5">
+      {label && <label className="text-[11px] font-bold text-gray-500 uppercase tracking-wider">{label}</label>}
+      <input
+        type="date"
+        value={v}
+        disabled={!isAdmin}
+        onChange={(e) => {
+          const novo = e.target.value;
+          setV(novo);
+          // Só salva data completa (YYYY-MM-DD) ou limpeza explícita do campo
+          if (novo === "" || /^\d{4}-\d{2}-\d{2}$/.test(novo)) commit(novo);
+        }}
+        onBlur={() => commit(v)}
+        className={className ?? "bg-black/40 border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-[#2AB9B0] disabled:text-gray-400"}
+      />
+    </div>
+  );
+}
+
 /* ─── Modal principal ─────────────────────────────────────────── */
 export default function ApartmentModal({
   unit, isAdmin, sessionId, onPatch, onClose, initialTab,
@@ -593,16 +634,12 @@ function VistoriaTab({ unit, isAdmin, patch }: { unit: Unit; isAdmin: boolean; p
 
       {/* Data e responsável */}
       <div className="grid grid-cols-2 gap-3">
-        <div className="flex flex-col gap-1.5">
-          <label className="text-[11px] font-bold text-gray-500 uppercase tracking-wider">Data de recebimento</label>
-          <input
-            type="date"
-            value={data.dataRecebimento}
-            disabled={!isAdmin}
-            onChange={(e) => update({ dataRecebimento: e.target.value })}
-            className="bg-black/40 border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-[#2AB9B0] disabled:text-gray-400"
-          />
-        </div>
+        <DateField
+          label="Data de recebimento"
+          value={data.dataRecebimento}
+          isAdmin={isAdmin}
+          onSave={(v) => update({ dataRecebimento: v })}
+        />
         <div className="flex flex-col gap-1.5">
           <label className="text-[11px] font-bold text-gray-500 uppercase tracking-wider">Responsável</label>
           <input
@@ -736,12 +773,13 @@ function EntregaTab({ unit, isAdmin, patch }: { unit: Unit; isAdmin: boolean; pa
         <Checklist items={docs} isAdmin={isAdmin} onChange={(items) => update({ docs: items })} />
       </div>
 
-      <div className="flex flex-col gap-1.5">
-        <label className="text-[11px] font-bold text-gray-500 uppercase tracking-wider">Data da entrega</label>
-        <input type="date" value={data.dataEntrega} disabled={!isAdmin}
-          onChange={(e) => update({ dataEntrega: e.target.value })}
-          className="bg-black/40 border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-[#2AB9B0] disabled:text-gray-400 w-52" />
-      </div>
+      <DateField
+        label="Data da entrega"
+        value={data.dataEntrega}
+        isAdmin={isAdmin}
+        onSave={(v) => update({ dataEntrega: v })}
+        className="bg-black/40 border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-[#2AB9B0] disabled:text-gray-400 w-52"
+      />
 
       <div className="flex flex-col gap-2">
         <label className="text-[11px] font-bold text-gray-500 uppercase tracking-wider">Documento assinado</label>
