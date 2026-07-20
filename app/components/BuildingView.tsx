@@ -286,7 +286,7 @@ function UnitCard({
           onClick={() => onOpenVistoria(vistoriaId)}
           className="w-full py-1 rounded-lg border border-[#2AB9B0]/40 bg-[#2AB9B0]/10 text-[#2AB9B0] text-[10px] font-semibold hover:bg-[#2AB9B0]/20 transition-all"
         >
-          📋 Ver vistoria
+          📋 Ver Pré-vistoria
         </button>
       ) : onCreateVistoria ? (
         <button
