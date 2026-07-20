@@ -259,7 +259,7 @@ export default function CronogramaPage() {
       {/* Tabs */}
       <div className="relative z-10 bg-[#0F1E2E] border-b border-white/5 px-5">
         <div className="max-w-7xl mx-auto flex overflow-x-auto">
-          {([["calendar","📅 Calendário"],["lista","📋 Lista"],["historico","📜 Histórico"],["predio","🏢 Prédio"],["progresso","📊 Progresso"],["pedidos","📨 Pedidos"]] as const).map(([v,label])=>(
+          {([["calendar","📅 Calendário"],["lista","📋 Lista"],["historico","📜 Histórico"],["predio","🏢 Prédio"],["progresso","📊 Progresso"],["pedidos","🔑 Portal do Cliente"]] as const).map(([v,label])=>(
             <button key={v} onClick={()=>setView(v)}
               className={`relative px-4 py-3.5 text-sm font-semibold transition-all whitespace-nowrap ${view===v?"text-[#2AB9B0]":"text-gray-500 hover:text-gray-300"}`}>
               {label}

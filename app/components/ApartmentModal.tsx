@@ -316,7 +316,7 @@ export default function ApartmentModal({
           )}
 
           {tab === "posobra" && (
-            <PosObraTab unit={unit} isAdmin={isAdmin} sessionId={sessionId} patch={patch} />
+            <PosObraTab unit={unit} isAdmin={isAdmin} patch={patch} />
           )}
         </div>
       </div>
@@ -820,11 +820,10 @@ const POSOBRA_STATUS: Record<PosObraItem["status"], { label: string; color: stri
   aceito:       { label: "Aceito",       color: "#22C55E" },
 };
 
-function PosObraTab({ unit, isAdmin, sessionId, patch }: { unit: Unit; isAdmin: boolean; sessionId: string; patch: (p: UnitPatch) => Promise<void>; }) {
+function PosObraTab({ unit, isAdmin, patch }: { unit: Unit; isAdmin: boolean; patch: (p: UnitPatch) => Promise<void>; }) {
   const items = parseList<PosObraItem>(unit.posObra);
   const [titulo, setTitulo] = useState("");
   const [descricao, setDescricao] = useState("");
-  const [linkCopied, setLinkCopied] = useState(false);
   const [sentIds, setSentIds] = useState<Set<string>>(new Set());
 
   const save = (next: PosObraItem[]) => patch({ posObra: JSON.stringify(next) });
@@ -849,32 +848,15 @@ function PosObraTab({ unit, isAdmin, sessionId, patch }: { unit: Unit; isAdmin: 
     setTitulo(""); setDescricao("");
   };
 
-  const copyPortalLink = async () => {
-    const r = await fetch(`/api/units/${unit.id}/portal`, { method: "POST", headers: { "x-user-id": sessionId } });
-    if (!r.ok) return;
-    const { token } = await r.json();
-    const url = `${window.location.origin}/portal/${token}`;
-    try { await navigator.clipboard.writeText(url); } catch { /* área de transferência indisponível */ }
-    setLinkCopied(true);
-    setTimeout(() => setLinkCopied(false), 2500);
-  };
   const patchItem = (id: string, p: Partial<PosObraItem>) =>
     save(items.map((it) => it.id === id ? { ...it, ...p } : it));
   const remove = (id: string) => save(items.filter((it) => it.id !== id));
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex items-start justify-between gap-3">
-        <p className="text-sm text-gray-400">
-          Pedidos de revisão / manutenção pós-obra e as respostas da empresa.
-        </p>
-        {isAdmin && (
-          <button onClick={copyPortalLink}
-            className="flex-shrink-0 text-[11px] font-semibold px-3 py-1.5 rounded-xl bg-white/5 border border-white/10 text-gray-300 hover:bg-white/10 hover:text-white transition-all whitespace-nowrap">
-            {linkCopied ? "✓ Link copiado!" : "🔗 Copiar link do portal"}
-          </button>
-        )}
-      </div>
+      <p className="text-sm text-gray-400">
+        Pedidos de revisão / manutenção pós-obra e as respostas da empresa.
+      </p>
 
       {/* Novo pedido */}
       {isAdmin && (

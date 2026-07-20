@@ -28,6 +28,17 @@ export default function PedidosView({
 }) {
   const [filterStatus, setFilterStatus] = useState<PosObraItem["status"] | "all">("all");
   const [fichaUnitId, setFichaUnitId] = useState<string | null>(null);
+  const [linkCopiado, setLinkCopiado] = useState(false);
+
+  // Link único do portal — o mesmo para todos os clientes. Cada um se identifica
+  // com apartamento + e-mail (ou CPF) e cai na própria unidade.
+  const portalUrl = typeof window !== "undefined" ? `${window.location.origin}/portal` : "/portal";
+
+  const copiarLink = async () => {
+    try { await navigator.clipboard.writeText(portalUrl); } catch { /* área de transferência indisponível */ }
+    setLinkCopiado(true);
+    setTimeout(() => setLinkCopiado(false), 2500);
+  };
 
   const all: PedidoRow[] = units
     .flatMap((u) => parsePosObra(u.posObra).map((it) => ({ ...it, unit: u })))
@@ -39,6 +50,30 @@ export default function PedidosView({
 
   return (
     <div className="flex flex-col gap-4">
+      {/* Link geral do portal — enviar para todos os proprietários */}
+      {isAdmin && (
+        <div className="bg-[#0F1E2E] border border-[#2AB9B0]/20 rounded-2xl p-4 flex flex-col gap-2.5">
+          <div className="flex items-start justify-between gap-3 flex-wrap">
+            <div>
+              <p className="text-sm font-bold text-white">🔗 Link do Portal do Cliente</p>
+              <p className="text-xs text-gray-500 mt-0.5">
+                Um único link para todos os proprietários. Cada um entra com o número do apartamento
+                e o e-mail cadastrado (ou o CPF, depois do primeiro acesso).
+              </p>
+            </div>
+            <button
+              onClick={copiarLink}
+              className="flex-shrink-0 text-xs font-bold px-4 py-2 rounded-xl bg-[#2AB9B0] hover:bg-[#1EA59D] text-white transition-all whitespace-nowrap"
+            >
+              {linkCopiado ? "✓ Copiado!" : "Copiar link"}
+            </button>
+          </div>
+          <code className="text-[11px] text-[#2AB9B0] bg-black/30 border border-white/5 rounded-lg px-3 py-2 break-all">
+            {portalUrl}
+          </code>
+        </div>
+      )}
+
       {/* Filtros */}
       <div className="flex flex-wrap gap-2 items-center">
         <button
