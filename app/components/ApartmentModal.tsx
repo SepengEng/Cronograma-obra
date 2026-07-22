@@ -758,11 +758,16 @@ function VistoriaTab({ unit, isAdmin, patch }: { unit: Unit; isAdmin: boolean; p
 function EntregaTab({ unit, isAdmin, patch }: { unit: Unit; isAdmin: boolean; patch: (p: UnitPatch) => Promise<void>; }) {
   const data = parseEntrega(unit.entregaChaves);
   // docs padrão se ainda não houver nenhum
-  const docs: PendenciaItem[] = data.docs.length ? data.docs : [
+  const base: PendenciaItem[] = data.docs.length ? data.docs : [
     { id: uid(), text: "Registro da Escritura", done: false },
     { id: uid(), text: "ITIV", done: false },
     { id: uid(), text: "Manual do Proprietário", done: false },
   ];
+  // Garante que "Kit de entrega" exista em todos os apartamentos, mesmo nos que
+  // já tinham checklist salvo (evita migração de dados).
+  const docs: PendenciaItem[] = base.some((d) => d.text.trim().toLowerCase() === "kit de entrega")
+    ? base
+    : [...base, { id: uid(), text: "Kit de entrega", done: false }];
   const update = (next: Partial<EntregaChaves>) =>
     patch({ entregaChaves: JSON.stringify({ ...data, docs, ...next }) });
 
